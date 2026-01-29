@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vibe Checker ✨</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Montserrat:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme">🌙</button>
+
+    <div id="welcome-screen" class="screen active">
+        <div class="container">
+            <nav class="nav-bar">
+                <button class="nav-btn active" data-nav="welcome">Etusivu</button>
+                <button class="nav-btn" data-nav="history">Historia</button>
+            </nav>
+            <div class="logo-container">
+                <h1 class="logo">Vibe Checker</h1>
+                <p class="tagline">Intiimi kommunikaatio ilman painostusta</p>
+            </div>
+            <div class="action-buttons">
+                <button class="btn btn-primary" id="create-session-btn">Luo uusi sessio</button>
+                <button class="btn btn-outline" id="join-session-btn">Liity sessioon</button>
+            </div>
+            <div class="preset-buttons">
+                <button class="btn btn-secondary" id="quickie-preset-btn">⚡ Quickie</button>
+                <button class="btn btn-secondary" id="tantric-preset-btn">🧘 Tantric</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="selection-screen" class="screen">
+        <div class="container">
+            <h2 class="screen-title">Mitä mielessä?</h2>
+            <div class="session-info">
+                <span class="session-badge">Sessio ID: <strong id="session-id-display">-</strong></span>
+            </div>
+            
+            <div class="selection-sections">
+                <section class="selection-group">
+                    <h3>Tunnelma</h3>
+                    <div class="mood-grid">
+                        <div class="mood-card" data-mood="sensuelli"><span class="mood-icon">🌹</span><span class="mood-label">Sensuelli</span></div>
+                        <div class="mood-card" data-mood="villi"><span class="mood-icon">🔥</span><span class="mood-label">Villi</span></div>
+                        <div class="mood-card" data-mood="leikkisa"><span class="mood-icon">😈</span><span class="mood-label">Leikkisä</span></div>
+                        <div class="mood-card" data-mood="hella"><span class="mood-icon">💕</span><span class="mood-label">Hellä</span></div>
+                    </div>
+                </section>
+
+                <section class="selection-group">
+                    <h3>Fokus</h3>
+                    <div class="mood-grid">
+                        <div class="mood-card" data-focus="minun-nautinto">✨ Minun</div>
+                        <div class="mood-card" data-focus="kumppanin-nautinto">💝 Kumppanin</div>
+                        <div class="mood-card" data-focus="molemmat">🔥 Molemmat</div>
+                    </div>
+                </section>
+
+                <section class="selection-group">
+                    <h3>Mausteet</h3>
+                    <div class="spice-grid">
+                        <label class="spice-card">
+                            <input type="checkbox" name="outfit" value="alusvaatteet">
+                            <div class="spice-content">👙 Alusvaatteet</div>
+                        </label>
+                        <label class="spice-card">
+                            <input type="checkbox" name="bdsm" value="sidonta">
+                            <div class="spice-content">⛓️ Sidonta</div>
+                        </label>
+                        <label class="spice-card">
+                            <input type="checkbox" name="bdsm" value="piiskaus">
+                            <div class="spice-content">🌶️ Kuritus</div>
+                        </label>
+                    </div>
+                </section>
+
+                <section class="selection-group">
+                    <h3>Aika</h3>
+                    <div class="time-quick-select">
+                        <button class="time-btn" data-time="now">Nyt</button>
+                        <button class="time-btn" data-time="30min">30min</button>
+                        <button class="time-btn" data-time="evening">Illalla</button>
+                    </div>
+                </section>
+            </div>
+
+            <div class="submit-section">
+                <button class="btn btn-primary btn-large" id="submit-selection-btn">Lähetä ehdotus</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="results-screen" class="screen">
+        <div class="container">
+            <div id="waiting-state">
+                <div class="loading-spinner"></div>
+                <h2>Odotetaan kumppania...</h2>
+                <p>Kutsu linkki on kopioitu leikepöydälle!</p>
+                <button class="btn btn-outline" id="copy-link-btn">Kopioi linkki uudestaan</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="notification-container"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,84 @@
+:root {
+    --midnight: #0b0b14;
+    --midnight-light: #151520;
+    --rose-gold: #d4af37;
+    --neon-pink: #ff2d55;
+    --glass-bg: rgba(255, 255, 255, 0.05);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --text-primary: #ffffff;
+    --text-secondary: rgba(255, 255, 255, 0.7);
+    --text-muted: rgba(255, 255, 255, 0.5);
+    --glow-rose: 0 0 20px rgba(212, 175, 55, 0.3);
+    --glow-pink: 0 0 20px rgba(255, 45, 85, 0.4);
+    --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.3);
+    --font-heading: 'Cormorant Garamond', serif;
+    --font-body: 'Montserrat', sans-serif;
+}
+
+[data-theme="light"] {
+    --midnight: #f8f9fa;
+    --midnight-light: #ffffff;
+    --rose-gold: #b8860b;
+    --neon-pink: #d81b60;
+    --glass-bg: rgba(0, 0, 0, 0.03);
+    --glass-border: rgba(0, 0, 0, 0.1);
+    --text-primary: #1a1a1a;
+    --text-secondary: #4a4a4a;
+    --text-muted: #7a7a7a;
+    --glow-rose: 0 0 15px rgba(184, 134, 11, 0.2);
+    --glow-pink: 0 0 15px rgba(216, 27, 96, 0.2);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    background-color: var(--midnight);
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    line-height: 1.6;
+    overflow-x: hidden;
+    transition: background-color 0.5s ease, color 0.5s ease;
+}
+
+.container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* TYHYLIT JA LOGO */
+.logo-container {
+    text-align: center;
+    margin-bottom: 3rem;
+}
+
+.logo {
+    font-family: var(--font-heading);
+    font-size: 3.5rem;
+    font-weight: 300;
+    letter-spacing: 2px;
+    background: linear-gradient(to right, var(--rose-gold), #f3e5ab, var(--rose-gold));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 0.5rem;
+}
+
+.tagline {
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    color: var(--text-muted);
+}
+
+/* KORTIT JA RUUDUT */
+.screen {
+    display: none;
+    animation: fadeIn 0
