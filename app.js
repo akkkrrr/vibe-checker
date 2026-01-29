@@ -1,6 +1,6 @@
 /**
- * VIBE CHECKER - FULL REALTIME VERSION
- * Sisältää automaattisen vertailun ja tulosten näytön.
+ * VIBE CHECKER - FINAL PRODUCTION VERSION
+ * Alustettu käyttäjän vibechecker-e4823 projektille.
  */
 
 const firebaseConfig = {
@@ -23,10 +23,10 @@ const state = {
     theme: localStorage.getItem('theme') || 'dark',
     myProposal: null,
     partnerProposal: null,
-    unsubscribe: null // Kuuntelijan pysäyttämiseen
+    unsubscribe: null
 };
 
-// --- NÄKYMIEN HALLINTA ---
+// --- NÄKYMÄT ---
 function showScreen(id) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     const target = document.getElementById(id + '-screen');
@@ -36,7 +36,7 @@ function showScreen(id) {
 
 function notify(msg) {
     const n = document.createElement('div');
-    n.style.cssText = "position:fixed; bottom:30px; left:50%; transform:translateX(-50%); background:#d4af37; color:black; padding:15px 25px; border-radius:30px; z-index:10000; font-weight:600; box-shadow: 0 10px 30px rgba(0,0,0,0.5); font-family: sans-serif;";
+    n.style.cssText = "position:fixed; bottom:30px; left:50%; transform:translateX(-50%); background:#d4af37; color:black; padding:15px 25px; border-radius:30px; z-index:10000; font-weight:600; box-shadow: 0 10px 30px rgba(0,0,0,0.5); font-family: sans-serif; text-align:center;";
     n.textContent = msg;
     document.body.appendChild(n);
     setTimeout(() => {
@@ -50,14 +50,12 @@ function notify(msg) {
 function startListening() {
     if (state.unsubscribe) state.unsubscribe();
 
-    // Kuunnellaan tämän session ehdotuksia
     state.unsubscribe = db.collection("proposals")
         .where("sessionId", "==", state.sessionId)
         .onSnapshot((snapshot) => {
             const proposals = [];
             snapshot.forEach(doc => proposals.push(doc.data()));
 
-            // Etsitään oma ja kumppanin vastaus
             state.myProposal = proposals.find(p => p.userRole === state.userRole);
             state.partnerProposal = proposals.find(p => p.userRole !== state.userRole);
 
@@ -67,7 +65,7 @@ function startListening() {
         });
 }
 
-// --- TULOSTEN VERTAILU JA NÄYTTÖ ---
+// --- TULOSTEN RAKENTAMINEN ---
 function renderResults() {
     showScreen('results');
     const container = document.getElementById('results-screen').querySelector('.container');
@@ -75,45 +73,49 @@ function renderResults() {
     const myDetails = state.myProposal.details || {};
     const pDetails = state.partnerProposal.details || {};
 
-    // Etsitään yhteiset valinnat
-    let matchesHtml = "";
+    let matches = [];
     
-    // Käydään läpi kaikki kategoriat (mood, focus, outfits jne.)
+    // Verrataan kaikkia valintoja
     const allKeys = new Set([...Object.keys(myDetails), ...Object.keys(pDetails)]);
-    
     allKeys.forEach(key => {
         const myVal = myDetails[key];
         const pVal = pDetails[key];
 
-        // Jos molemmilla on sama yksittäinen arvo (kuten mood) tai yhteisiä listassa (kuten outfits)
         if (Array.isArray(myVal) && Array.isArray(pVal)) {
             const common = myVal.filter(v => pVal.includes(v));
-            common.forEach(v => matchesHtml += `<div class="match-badge">✨ ${v}</div>`);
-        } else if (myVal === pVal && myVal !== undefined) {
-            matchesHtml += `<div class="match-badge">✨ ${myVal}</div>`;
+            matches = [...matches, ...common];
+        } else if (myVal === pVal && myVal !== undefined && myVal !== "ei valittu") {
+            matches.push(myVal);
         }
     });
 
     container.innerHTML = `
-        <h1 class="logo">Vibe Match!</h1>
-        <div class="match-container">
-            <h3>Yhteiset toiveenne:</h3>
+        <div class="results-header">
+            <h1 class="logo" style="font-size: 3rem; margin-bottom: 0.5rem;">Vibe Match!</h1>
+            <p style="color: var(--rose-gold); letter-spacing: 2px;">TEIDÄN YHTEINEN TUNNELMANNE</p>
+        </div>
+
+        <div class="matches-display">
             <div class="matches-grid">
-                ${matchesHtml || "<p>Ei suoria osumia, mutta katsokaa toistenne toiveet alta!</p>"}
+                ${matches.map(m => `<div class="match-badge">✨ ${m.toUpperCase()}</div>`).join('')}
             </div>
-            
-            <div class="comparison-grid" style="margin-top: 2rem; display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                <div class="my-side" style="text-align: left; opacity: 0.8;">
-                    <h4>Sinun valinnat:</h4>
-                    <small>${Object.values(myDetails).flat().join(', ')}</small>
+            ${matches.length === 0 ? '<p style="opacity:0.6">Ei suoria osumia, mutta katsokaa toiveenne alta!</p>' : ''}
+        </div>
+
+        <div class="summary-section" style="margin-top: 3rem; border-top: 1px solid var(--glass-border); padding-top: 2rem;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div style="text-align: left;">
+                    <h4 style="font-size: 0.8rem; opacity: 0.5; margin-bottom: 10px;">SINUN TOIVEET</h4>
+                    <div style="font-size: 0.9rem;">${Object.values(myDetails).flat().filter(v => v !== "ei valittu").join(' • ')}</div>
                 </div>
-                <div class="partner-side" style="text-align: right; color: var(--rose-gold);">
-                    <h4>Kumppanin valinnat:</h4>
-                    <small>${Object.values(pDetails).flat().join(', ')}</small>
+                <div style="text-align: right;">
+                    <h4 style="font-size: 0.8rem; opacity: 0.5; margin-bottom: 10px;">KUMPPANIN TOIVEET</h4>
+                    <div style="font-size: 0.9rem; color: var(--rose-gold);">${Object.values(pDetails).flat().filter(v => v !== "ei valittu").join(' • ')}</div>
                 </div>
             </div>
         </div>
-        <button class="btn btn-outline" onclick="location.reload()" style="margin-top: 2rem;">Uusi tarkistus</button>
+
+        <button class="btn btn-outline" onclick="window.location.href=window.location.pathname" style="margin-top: 3rem; width: 100%;">Uusi sessio</button>
     `;
 }
 
@@ -131,11 +133,11 @@ async function createSession() {
         
         const url = window.location.origin + window.location.pathname + '?session=' + id;
         navigator.clipboard.writeText(url);
-        notify("Sessio luotu ja linkki kopioitu!");
+        notify("🔥 Sessio luotu ja linkki kopioitu! Lähetä se kumppanille.");
         showScreen('selection');
-        startListening(); // Alkaa odottaa kumppania
+        startListening();
     } catch (e) {
-        notify("Virhe Firebasessa!");
+        notify("❌ Yhteysvirhe Firebaseen!");
     }
 }
 
@@ -170,16 +172,15 @@ async function submitSelection() {
             renderResults();
         } else {
             showScreen('results');
-            notify("Ehdotus lähetetty! Odotetaan kumppania...");
+            notify("✅ Valinnat lähetetty! Odotetaan kumppania...");
         }
     } catch (e) {
-        notify("Lähetys epäonnistui!");
+        notify("❌ Lähetys epäonnistui!");
     }
 }
 
 // --- ALUSTUS ---
 document.addEventListener('DOMContentLoaded', () => {
-    // Tarkistetaan onko URL:ssa sessio-ID (kumppani tulee linkistä)
     const urlParams = new URLSearchParams(window.location.search);
     const sid = urlParams.get('session');
     
@@ -189,6 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('session-id-display').textContent = state.sessionId;
         showScreen('selection');
         startListening();
+        notify("⚡ Liitytty sessioon: " + state.sessionId);
     }
 
     document.getElementById('create-session-btn').onclick = createSession;
@@ -205,12 +207,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    // Korttien klikkauslogiikka (toimii kaikille dynaamisesti)
     document.addEventListener('click', (e) => {
         const card = e.target.closest('.mood-card, .time-btn');
         if (card) {
             const parent = card.parentElement;
             parent.querySelectorAll('.mood-card, .time-btn').forEach(c => c.classList.remove('selected'));
             card.classList.add('selected');
+            if (navigator.vibrate) navigator.vibrate(10);
         }
     });
 
