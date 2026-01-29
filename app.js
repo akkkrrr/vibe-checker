@@ -1,9 +1,8 @@
 /**
- * VIBE CHECKER - FIREBASE PRODUCTION VERSION
- * Alustettu käyttäjän vibechecker-e4823 projektille.
+ * VIBE CHECKER - FULL REALTIME VERSION
+ * Sisältää automaattisen vertailun ja tulosten näytön.
  */
 
-// 1. FIREBASE KONFIGURAATIO
 const firebaseConfig = {
     apiKey: "AIzaSyDc4Wz35pzGP-Udi1R4JtJWLtolQiRJzJo",
     authDomain: "vibechecker-e4823.firebaseapp.com",
@@ -21,10 +20,13 @@ const db = firebase.firestore();
 const state = {
     sessionId: null,
     userRole: null,
-    theme: localStorage.getItem('theme') || 'dark'
+    theme: localStorage.getItem('theme') || 'dark',
+    myProposal: null,
+    partnerProposal: null,
+    unsubscribe: null // Kuuntelijan pysäyttämiseen
 };
 
-// --- APUFUNKTIOT ---
+// --- NÄKYMIEN HALLINTA ---
 function showScreen(id) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     const target = document.getElementById(id + '-screen');
@@ -44,61 +46,115 @@ function notify(msg) {
     }, 4000);
 }
 
-// --- SESSION HALLINTA ---
-async function createSession() {
-    // Generoidaan 6-merkkinen tunnus (esim. A1B2C3)
-    const id = Math.random().toString(36).substring(2, 8).toUpperCase();
+// --- REALTIME KUUNTELIJA ---
+function startListening() {
+    if (state.unsubscribe) state.unsubscribe();
+
+    // Kuunnellaan tämän session ehdotuksia
+    state.unsubscribe = db.collection("proposals")
+        .where("sessionId", "==", state.sessionId)
+        .onSnapshot((snapshot) => {
+            const proposals = [];
+            snapshot.forEach(doc => proposals.push(doc.data()));
+
+            // Etsitään oma ja kumppanin vastaus
+            state.myProposal = proposals.find(p => p.userRole === state.userRole);
+            state.partnerProposal = proposals.find(p => p.userRole !== state.userRole);
+
+            if (state.myProposal && state.partnerProposal) {
+                renderResults();
+            }
+        });
+}
+
+// --- TULOSTEN VERTAILU JA NÄYTTÖ ---
+function renderResults() {
+    showScreen('results');
+    const container = document.getElementById('results-screen').querySelector('.container');
     
+    const myDetails = state.myProposal.details || {};
+    const pDetails = state.partnerProposal.details || {};
+
+    // Etsitään yhteiset valinnat
+    let matchesHtml = "";
+    
+    // Käydään läpi kaikki kategoriat (mood, focus, outfits jne.)
+    const allKeys = new Set([...Object.keys(myDetails), ...Object.keys(pDetails)]);
+    
+    allKeys.forEach(key => {
+        const myVal = myDetails[key];
+        const pVal = pDetails[key];
+
+        // Jos molemmilla on sama yksittäinen arvo (kuten mood) tai yhteisiä listassa (kuten outfits)
+        if (Array.isArray(myVal) && Array.isArray(pVal)) {
+            const common = myVal.filter(v => pVal.includes(v));
+            common.forEach(v => matchesHtml += `<div class="match-badge">✨ ${v}</div>`);
+        } else if (myVal === pVal && myVal !== undefined) {
+            matchesHtml += `<div class="match-badge">✨ ${myVal}</div>`;
+        }
+    });
+
+    container.innerHTML = `
+        <h1 class="logo">Vibe Match!</h1>
+        <div class="match-container">
+            <h3>Yhteiset toiveenne:</h3>
+            <div class="matches-grid">
+                ${matchesHtml || "<p>Ei suoria osumia, mutta katsokaa toistenne toiveet alta!</p>"}
+            </div>
+            
+            <div class="comparison-grid" style="margin-top: 2rem; display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div class="my-side" style="text-align: left; opacity: 0.8;">
+                    <h4>Sinun valinnat:</h4>
+                    <small>${Object.values(myDetails).flat().join(', ')}</small>
+                </div>
+                <div class="partner-side" style="text-align: right; color: var(--rose-gold);">
+                    <h4>Kumppanin valinnat:</h4>
+                    <small>${Object.values(pDetails).flat().join(', ')}</small>
+                </div>
+            </div>
+        </div>
+        <button class="btn btn-outline" onclick="location.reload()" style="margin-top: 2rem;">Uusi tarkistus</button>
+    `;
+}
+
+// --- TOIMINNOT ---
+async function createSession() {
+    const id = Math.random().toString(36).substring(2, 8).toUpperCase();
     try {
         await db.collection("sessions").doc(id).set({
             status: "waiting",
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
-
         state.sessionId = id;
         state.userRole = 'partner_a';
         document.getElementById('session-id-display').textContent = id;
         
         const url = window.location.origin + window.location.pathname + '?session=' + id;
         navigator.clipboard.writeText(url);
-        
-        notify("🔥 Sex Session ID: " + id + " - Linkki kopioitu leikepöydälle!");
+        notify("Sessio luotu ja linkki kopioitu!");
         showScreen('selection');
-    } catch (error) {
-        console.error("Firebase Error:", error);
-        notify("❌ Virhe: Varmista että Firestore Rules on asetettu!");
+        startListening(); // Alkaa odottaa kumppania
+    } catch (e) {
+        notify("Virhe Firebasessa!");
     }
 }
 
-// --- LÄHETYS (Kerää kaikki tiedot dynaamisesti) ---
 async function submitSelection() {
     const details = {};
-    let mood = null;
-    let focus = null;
+    let mood = "ei valittu";
+    let focus = "ei valittu";
 
-    // 1. Kerätään valitut kortit (Tunnelma, Fokus, Tempo jne.)
     document.querySelectorAll('.selected').forEach(el => {
         if (el.dataset.mood) mood = el.dataset.mood;
         if (el.dataset.focus) focus = el.dataset.focus;
-        // Tallennetaan kaikki data-attribuutit details-objektiin
         Object.assign(details, el.dataset);
     });
 
-    // 2. Kerätään kaikki checkboxit (Nylon, Asusteet, BDSM jne.)
     document.querySelectorAll('input[type="checkbox"]:checked').forEach(c => {
-        const category = c.name || 'extras';
-        if (!details[category]) details[category] = [];
-        details[category].push(c.value);
+        const cat = c.name || 'extras';
+        if (!details[cat]) details[cat] = [];
+        details[cat].push(c.value);
     });
-
-    // 3. Tekstikenttä
-    const wishes = document.querySelector('textarea');
-    if (wishes) details.custom_wishes = wishes.value;
-
-    if (!mood || !focus) {
-        notify("❗ Valitse vähintään tunnelma ja fokus!");
-        return;
-    }
 
     try {
         await db.collection("proposals").add({
@@ -109,49 +165,55 @@ async function submitSelection() {
             details: details,
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
-
-        showScreen('results');
-        notify("✅ Ehdotus lähetetty kumppanille!");
-    } catch (error) {
-        console.error(error);
-        notify("❌ Lähetys epäonnistui!");
+        
+        if (state.partnerProposal) {
+            renderResults();
+        } else {
+            showScreen('results');
+            notify("Ehdotus lähetetty! Odotetaan kumppania...");
+        }
+    } catch (e) {
+        notify("Lähetys epäonnistui!");
     }
 }
 
-// --- INTERAKTIOT ---
-function setupEventListeners() {
-    // Alun napit
-    const createBtn = document.getElementById('create-session-btn');
-    if (createBtn) createBtn.onclick = createSession;
+// --- ALUSTUS ---
+document.addEventListener('DOMContentLoaded', () => {
+    // Tarkistetaan onko URL:ssa sessio-ID (kumppani tulee linkistä)
+    const urlParams = new URLSearchParams(window.location.search);
+    const sid = urlParams.get('session');
     
-    const submitBtn = document.getElementById('submit-selection-btn');
-    if (submitBtn) submitBtn.onclick = submitSelection;
-    
-    const joinBtn = document.getElementById('join-session-btn');
-    if (joinBtn) {
-        joinBtn.onclick = () => {
-            const id = prompt("Syötä Session ID:");
-            if (id) {
-                state.sessionId = id.toUpperCase();
-                state.userRole = 'partner_b';
-                document.getElementById('session-id-display').textContent = state.sessionId;
-                showScreen('selection');
-            }
-        };
+    if (sid) {
+        state.sessionId = sid.toUpperCase();
+        state.userRole = 'partner_b';
+        document.getElementById('session-id-display').textContent = state.sessionId;
+        showScreen('selection');
+        startListening();
     }
 
-    // Dynaaminen korttien klikkaus (kaikki kategoriat)
+    document.getElementById('create-session-btn').onclick = createSession;
+    document.getElementById('submit-selection-btn').onclick = submitSelection;
+
+    document.getElementById('join-session-btn').onclick = () => {
+        const id = prompt("Syötä Session ID:");
+        if (id) {
+            state.sessionId = id.toUpperCase();
+            state.userRole = 'partner_b';
+            document.getElementById('session-id-display').textContent = state.sessionId;
+            showScreen('selection');
+            startListening();
+        }
+    };
+
     document.addEventListener('click', (e) => {
         const card = e.target.closest('.mood-card, .time-btn');
         if (card) {
             const parent = card.parentElement;
             parent.querySelectorAll('.mood-card, .time-btn').forEach(c => c.classList.remove('selected'));
             card.classList.add('selected');
-            if (navigator.vibrate) navigator.vibrate(10);
         }
     });
 
-    // Teeman vaihto
     const themeBtn = document.getElementById('theme-toggle');
     if (themeBtn) {
         themeBtn.onclick = () => {
@@ -159,10 +221,4 @@ function setupEventListeners() {
             document.body.setAttribute('data-theme', state.theme);
         };
     }
-}
-
-// KÄYNNISTYS
-document.addEventListener('DOMContentLoaded', () => {
-    setupEventListeners();
-    console.log("Vibe Checker Firebase Edition ready.");
 });
