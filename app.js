@@ -1,9 +1,3 @@
-/**
- * VIBE CHECKER - V1.1 OPTIMIZED
- * Fixes: #1 Duplicate proposals, #2 Inefficient queries, #3 Error handling, 
- * #4 UTF-8 Encoding, #5 Memory leaks/Cleanup.
- */
-
 const firebaseConfig = {
     apiKey: "AIzaSyDc4Wz35pzGP-Udi1R4JtJWLtolQiRJzJo",
     authDomain: "vibechecker-e4823.firebaseapp.com",
@@ -15,123 +9,137 @@ const firebaseConfig = {
 };
 
 // Alustus
-firebase.initializeApp(firebaseConfig);
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+}
 const db = firebase.firestore();
 
 const state = {
     sessionId: null,
     userRole: null,
-    theme: localStorage.getItem('theme') || 'dark',
     myProposal: null,
-    partnerProposal: null,
-    myUnsubscribe: null,
-    partnerUnsubscribe: null
+    partnerProposal: null
 };
 
-// --- PUHDISTUS (BUG #5) ---
-function cleanupListeners() {
-    if (state.myUnsubscribe) state.myUnsubscribe();
-    if (state.partnerUnsubscribe) state.partnerUnsubscribe();
-    console.log("Listeners cleaned up.");
-}
-
-// --- NÄKYMÄT ---
 function showScreen(id) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     const target = document.getElementById(id + '-screen');
     if (target) target.classList.add('active');
-    window.scrollTo(0, 0);
 }
 
-function notify(msg) {
-    const n = document.createElement('div');
-    n.style.cssText = "position:fixed; bottom:30px; left:50%; transform:translateX(-50%); background:#d4af37; color:black; padding:15px 25px; border-radius:30px; z-index:10000; font-weight:600; box-shadow: 0 10px 30px rgba(0,0,0,0.5); font-family: sans-serif; text-align:center;";
-    n.textContent = msg;
-    document.body.appendChild(n);
-    setTimeout(() => {
-        n.style.opacity = '0';
-        n.style.transition = '0.5s';
-        setTimeout(() => n.remove(), 500);
-    }, 4000);
-}
-
-// --- OPTIMOITU REALTIME KUUNTELIJA (BUG #2 & #3) ---
 function startListening() {
-    cleanupListeners();
-
-    const myDocId = state.sessionId + "_" + state.userRole;
-    const partnerRole = state.userRole === 'partner_a' ? 'partner_b' : 'partner_a';
-    const partnerDocId = state.sessionId + "_" + partnerRole;
-
-    // Kuunnellaan omaa dokumenttia
-    state.myUnsubscribe = db.collection("proposals").doc(myDocId)
+    const pRole = state.userRole === 'partner_a' ? 'partner_b' : 'partner_a';
+    
+    db.collection("proposals").doc(state.sessionId + "_" + state.userRole)
         .onSnapshot(doc => {
             if (doc.exists) state.myProposal = doc.data();
-            checkBothProposals();
-        }, error => {
-            console.error("My stream error:", error);
-            notify("Yhteysvirhe omassa datassa.");
+            if (state.myProposal && state.partnerProposal) renderResults();
         });
 
-    // Kuunnellaan kumppanin dokumenttia
-    state.partnerUnsubscribe = db.collection("proposals").doc(partnerDocId)
+    db.collection("proposals").doc(state.sessionId + "_" + pRole)
         .onSnapshot(doc => {
             if (doc.exists) state.partnerProposal = doc.data();
-            checkBothProposals();
-        }, error => {
-            console.error("Partner stream error:", error);
-            notify("Yhteys kumppaniin katkesi.");
+            if (state.myProposal && state.partnerProposal) renderResults();
         });
 }
 
-function checkBothProposals() {
-    if (state.myProposal && state.partnerProposal) {
-        renderResults();
-    }
-}
-
-// --- TULOSTEN RAKENTAMINEN ---
 function renderResults() {
     showScreen('results');
-    const container = document.getElementById('results-screen').querySelector('.container');
-    
-    const myDetails = state.myProposal.details || {};
-    const pDetails = state.partnerProposal.details || {};
+    const container = document.querySelector('#results-screen .container');
+    if (!container) return;
 
+    const my = state.myProposal.details || {};
+    const pt = state.partnerProposal.details || {};
+    
     let matches = [];
-    const allKeys = new Set([...Object.keys(myDetails), ...Object.keys(pDetails)]);
-    
-    allKeys.forEach(key => {
-        const myVal = myDetails[key];
-        const pVal = pDetails[key];
-
-        if (Array.isArray(myVal) && Array.isArray(pVal)) {
-            const common = myVal.filter(v => pVal.includes(v));
+    Object.keys(my).forEach(k => {
+        if (Array.isArray(my[k]) && Array.isArray(pt[k])) {
+            const common = my[k].filter(v => pt[k].includes(v));
             matches = [...matches, ...common];
-        } else if (myVal === pVal && myVal !== undefined && myVal !== "ei valittu") {
-            matches.push(myVal);
+        } else if (my[k] === pt[k] && my[k] !== "ei valittu" && my[k] !== undefined) {
+            matches.push(my[k]);
         }
     });
 
-    // BUG #4: Tekstit ilman ääkkösongelmia
+    // Tässä oli se vaarallinen kohta - varmistettu että kaikki `` on kiinni
     container.innerHTML = `
-        <div class="results-header">
-            <h1 class="logo" style="font-size: 3rem; margin-bottom: 0.5rem;">Vibe Match!</h1>
-            <p style="color: var(--rose-gold); letter-spacing: 2px;">TEIDAN YHTEINEN TUNNELMANNE</p>
+        <h1 class="logo">Vibe Match!</h1>
+        <div style="display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin:20px 0;">
+            ${matches.map(m => `<div class="match-badge">✨ ${m.toUpperCase()}</div>`).join('')}
         </div>
+        <p style="margin-top:20px; opacity:0.7;">Yhteiset osumat löydetty!</p>
+        <button class="btn btn-outline" onclick="window.location.href=window.location.pathname" style="margin-top:20px; width:100%;">Uusi sessio</button>
+    `;
+}
 
-        <div class="matches-display">
-            <div class="matches-grid">
-                ${matches.map(m => `<div class="match-badge">✨ ${m.toUpperCase()}</div>`).join('')}
-            </div>
-            ${matches.length === 0 ? '<p style="opacity:0.6">Ei suoria osumia, mutta katsokaa toiveet alta!</p>' : ''}
-        </div>
+async function createSession() {
+    const id = Math.random().toString(36).substring(2, 8).toUpperCase();
+    try {
+        await db.collection("sessions").doc(id).set({ status: "waiting" });
+        state.sessionId = id;
+        state.userRole = 'partner_a';
+        document.getElementById('session-id-display').textContent = id;
+        
+        const url = window.location.origin + window.location.pathname + '?session=' + id;
+        navigator.clipboard.writeText(url);
+        
+        showScreen('selection');
+        startListening();
+    } catch (e) {
+        alert("Firebase-virhe: " + e.message);
+    }
+}
 
-        <div class="summary-section" style="margin-top: 3rem; border-top: 1px solid var(--glass-border); padding-top: 2rem;">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                <div style="text-align: left;">
-                    <h4 style="font-size: 0.8rem; opacity: 0.5; margin-bottom: 10px;">SINUN TOIVEET</h4>
-                    <div style="font-size: 0.9rem;">${Object.values(myDetails).flat().filter(v => v !== "ei valittu").join(' • ')}</div>
-                </div>
-                <div style="text-align: right;">
-                    <h4 style
+async function submitSelection() {
+    const details = {};
+    document.querySelectorAll('.selected').forEach(el => Object.assign(details, el.dataset));
+    document.querySelectorAll('input[type="checkbox"]:checked').forEach(c => {
+        const cat = c.name || 'extras';
+        if (!details[cat]) details[cat] = [];
+        details[cat].push(c.value);
+    });
+
+    try {
+        await db.collection("proposals").doc(state.sessionId + "_" + state.userRole).set({
+            sessionId: state.sessionId,
+            userRole: state.userRole,
+            details: details
+        }, { merge: true });
+
+        if (!state.partnerProposal) {
+            showScreen('results');
+            document.querySelector('#results-screen .container').innerHTML = `<h2>Ehdotus lähetetty!</h2><p>Odotetaan kumppania...</p>`;
+        }
+    } catch (e) {
+        alert("Lähetysvirhe: " + e.message);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const sid = urlParams.get('session');
+    
+    if (sid) {
+        state.sessionId = sid.toUpperCase();
+        state.userRole = 'partner_b';
+        const display = document.getElementById('session-id-display');
+        if (display) display.textContent = state.sessionId;
+        showScreen('selection');
+        startListening();
+    }
+
+    const createBtn = document.getElementById('create-session-btn');
+    if (createBtn) createBtn.onclick = createSession;
+
+    const submitBtn = document.getElementById('submit-selection-btn');
+    if (submitBtn) submitBtn.onclick = submitSelection;
+    
+    document.addEventListener('click', (e) => {
+        const card = e.target.closest('.mood-card, .time-btn');
+        if (card) {
+            const parent = card.parentElement;
+            parent.querySelectorAll('.mood-card, .time-btn').forEach(c => c.classList.remove('selected'));
+            card.classList.add('selected');
+        }
+    });
+});
