@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vibe Checker ✨</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Montserrat:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme">🌙</button>
+
+    <div id="welcome-screen" class="screen active">
+        <div class="container">
+            <nav class="nav-bar">
+                <button class="nav-btn active" data-nav="welcome">Etusivu</button>
+                <button class="nav-btn" data-nav="history">Historia</button>
+            </nav>
+            <div class="logo-container">
+                <h1 class="logo">Vibe Checker</h1>
+                <p class="tagline">Intiimi kommunikaatio ilman painostusta</p>
+            </div>
+            <div class="action-buttons">
+                <button class="btn btn-primary" id="create-session-btn">✨ Luo kutsu</button>
+                <button class="btn btn-secondary" id="join-session-btn">💌 Avaa kutsu</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="selection-screen" class="screen">
+        <div class="container">
+            <div class="header-section">
+                <h2 class="screen-title">Valitse vibesi</h2>
+                <div class="session-actions">
+                    <button class="btn btn-secondary btn-small" id="copy-link-btn">🔗 Kopioi linkki</button>
+                </div>
+            </div>
+
+            <section class="selection-section">
+                <h3 class="section-title">Tunnelma & Fokus</h3>
+                <div class="mood-grid mood-grid-5" id="mood-options">
+                    <button class="mood-card" data-mood="sensuelli"><span>🌹</span><small>Sensuelli</small></button>
+                    <button class="mood-card" data-mood="villi"><span>🔥</span><small>Villi</small></button>
+                    <button class="mood-card" data-mood="leikkisa"><span>😈</span><small>Leikkisä</small></button>
+                    <button class="mood-card" data-mood="dominoiva"><span>👑</span><small>Dominoiva</small></button>
+                    <button class="mood-card" data-mood="hella"><span>💕</span><small>Hellä</small></button>
+                </div>
+                <div class="mood-grid mood-grid-4" id="focus-options" style="margin-top: 10px;">
+                    <button class="mood-card" data-focus="minun"><span>✨</span><small>Minun</small></button>
+                    <button class="mood-card" data-focus="kumppanin"><span>💝</span><small>Sinun</small></button>
+                    <button class="mood-card" data-focus="matka"><span>🎭</span><small>Matka</small></button>
+                    <button class="mood-card" data-focus="molemmat"><span>🔥</span><small>Molemmat</small></button>
+                </div>
+            </section>
+
+            <section class="selection-section">
+                <h3 class="section-title">Aika & Kommunikaatio</h3>
+                <div class="time-slider-container">
+                    <label>Arvioitu kesto: <span id="time-display">60</span> min</label>
+                    <input type="range" id="session-time" min="15" max="240" step="15" value="60">
+                </div>
+                <div class="spice-grid" style="margin-top:15px">
+                    <label class="spice-card"><input type="checkbox" name="spice" value="puhuminen"><span>💋 Puhuminen</span></label>
+                    <label class="spice-card"><input type="checkbox" name="spice" value="hiljaisuus"><span>🤫 Hiljaisuus</span></label>
+                    <label class="spice-card"><input type="checkbox" name="spice" value="ohjaus"><span>📢 Ohjaus</span></label>
+                    <label class="spice-card"><input type="checkbox" name="spice" value="kehuja"><span>🌟 Kehuja</span></label>
+                </div>
+            </section>
+
+            <section class="selection-section">
+                <h3 class="section-title">Asut & Nylon</h3>
+                <div class="spice-grid">
+                    <label class="spice-card"><input type="checkbox" name="spice" value="pitsit"><span>🦋 Pitsit</span></label>
+                    <label class="spice-card"><input type="checkbox" name="spice" value="body"><span>👙 Body</span></label>
+                    <label class="spice-card"><input type="checkbox" name="spice" value="alaston"><span>✨ Alaston</span></label>
+                    <label class="spice-card"><input type="checkbox" name="spice" value="nude-su"><span>🩰 Nude SU</span></label>
+                    <label class="spice-card"><input type="checkbox" name="spice" value="black-su"><span>🖤 Musta SU</span></label>
+                    <label class="spice-card"><input type="checkbox" name="spice" value="avoimet"><span>💎 Avoimet</span></label>
+                </div>
+            </section>
+
+            <section class="selection-section">
+                <h3 class="section-title">Leikit & Välineet</h3>
+                <div class="spice-grid">
+                    <label class="spice-card"><input type="checkbox" name="spice" value="piiskaus"><span>🔴 Piiskaus</span></label>
+                    <label class="spice-card"><input type="checkbox" name="spice" value="pureminen"><span>🦷 Pureminen</span></label>
+                    <label class="spice-card"><input type="checkbox" name="spice" value="hiukset"><span>💇 Hiukset</span></label>
+                    <label class="spice-card"><input type="checkbox" name="spice" value="sidonta"><span>🪢 Sidonta</span></label>
+                    <label class="spice-card"><input type="checkbox" name="spice" value="silmat-kiinni"><span>👁️ Silmät kiinni</span></label>
+                    <label class="spice-card"><input type="checkbox" name="spice" value="vibra"><span>💫 Vibra</span></label>
+                    <label class="spice-card"><input type="checkbox" name="spice" value="oljy"><span>🫗 Öljy</span></label>
+                    <label class="spice-card"><input type="checkbox" name="spice" value="jaa-vaha"><span>🧊 Jää/Vaha</span></label>
+                </div>
+            </section>
+
+            <section class="selection-section" style="background: rgba(255,182,193,0.1); border-radius: 15px; padding: 15px;">
+                <h3 class="section-title">Aftercare ✨</h3>
+                <div class="spice-grid">
+                    <label class="spice-card"><input type="checkbox" name="spice" value="laheisyys"><span>🫂 Läheisyys</span></label>
+                    <label class="spice-card"><input type="checkbox" name="spice" value="pesu"><span>🚿 Pesu</span></label>
+                    <label class="spice-card"><input type="checkbox" name="spice" value="ruoka"><span>🍷 Ruoka/Juoma</span></label>
+                    <label class="spice-card"><input type="checkbox" name="spice" value="keskustelu"><span>💬 Keskustelu</span></label>
+                </div>
+            </section>
+
+            <div class="submit-section">
+                <button class="btn btn-primary btn-large" id="submit-proposal-btn">Lähetä ehdotus ✨</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="waiting-screen" class="screen"><div class="container"><h2>Odotetaan kumppania...</h2></div></div>
+    <div id="history-screen" class="screen"><div class="container"><h2>Historia</h2><div id="history-list"></div></div></div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
