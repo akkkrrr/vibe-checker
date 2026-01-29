@@ -1,22 +1,14 @@
-/* === VIBE CHECKER v1.5 - COMPLETE STYLESHEET === */
+/* === VIBE CHECKER v1.5 - ULKOASU === */
 
 :root {
     --midnight: #0a0a0c;
-    --rose-gold: #d4af37; /* Kultainen teema osumille */
+    --rose-gold: #d4af37;
     --glass-bg: rgba(255, 255, 255, 0.05);
     --glass-border: rgba(255, 255, 255, 0.1);
     --text-main: #ffffff;
     --text-secondary: #b0b0b0;
     --font-heading: 'Playfair Display', serif;
     --font-body: 'Inter', sans-serif;
-}
-
-[data-theme="light"] {
-    --midnight: #f8f9fa;
-    --glass-bg: rgba(0, 0, 0, 0.05);
-    --glass-border: rgba(0, 0, 0, 0.1);
-    --text-main: #1a1a1a;
-    --text-secondary: #4a4a4a;
 }
 
 * {
@@ -30,8 +22,7 @@ body {
     color: var(--text-main);
     font-family: var(--font-body);
     line-height: 1.6;
-    overflow-x: hidden;
-    transition: background-color 0.3s ease;
+    min-height: 100vh;
 }
 
 .container {
@@ -40,25 +31,25 @@ body {
     padding: 2rem 1.5rem;
 }
 
-/* --- LOGO & HEADER --- */
 .logo {
     font-family: var(--font-heading);
-    font-size: 2.5rem;
+    font-size: 3rem;
     text-align: center;
-    margin-bottom: 2rem;
-    background: linear-gradient(to right, #d4af37, #f1d592);
+    margin-bottom: 0.5rem;
+    background: linear-gradient(135deg, #d4af37 0%, #f1d592 50%, #d4af37 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
+    font-weight: 700;
 }
 
-/* --- SCREENS --- */
+/* --- SCREEN LOGIIKKA --- */
 .screen {
     display: none;
-    animation: fadeIn 0.5s ease;
 }
 
 .screen.active {
     display: block;
+    animation: fadeIn 0.5s ease;
 }
 
 @keyframes fadeIn {
@@ -66,63 +57,7 @@ body {
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* --- BUTTONS --- */
-.btn {
-    display: block;
-    width: 100%;
-    padding: 1rem;
-    border-radius: 12px;
-    border: none;
-    font-size: 1rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    margin-bottom: 1rem;
-    text-align: center;
-    text-decoration: none;
-}
-
-.btn-primary {
-    background: var(--rose-gold);
-    color: #000;
-}
-
-.btn-outline {
-    background: transparent;
-    border: 1px solid var(--glass-border);
-    color: var(--text-main);
-}
-
-.btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(212, 175, 55, 0.2);
-}
-
-/* --- CARDS & GRID --- */
-.grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-    margin-bottom: 2rem;
-}
-
-.mood-card {
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
-    padding: 1.5rem;
-    border-radius: 15px;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.mood-card.selected {
-    border-color: var(--rose-gold);
-    background: rgba(212, 175, 55, 0.1);
-}
-
-/* --- v1.5 NEGOTIATION ELEMENTS --- */
-
+/* --- BANNERIT (Clauden v1.5) --- */
 .prefill-banner {
     background: linear-gradient(135deg, rgba(212, 175, 55, 0.15), rgba(255, 45, 85, 0.15));
     border: 2px solid var(--rose-gold);
@@ -137,7 +72,6 @@ body {
     justify-content: space-between;
     align-items: center;
     gap: 1rem;
-    font-size: 0.9rem;
 }
 
 @keyframes slideDown {
@@ -145,10 +79,77 @@ body {
     to { opacity: 1; transform: translateY(0); }
 }
 
+/* --- KORTIT JA VALINNAT --- */
+.mood-card, .time-btn {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    padding: 1.5rem;
+    border-radius: 15px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(10px);
+}
+
+.mood-card.selected, .time-btn.selected {
+    border-color: var(--rose-gold);
+    background: rgba(212, 175, 55, 0.15);
+    box-shadow: 0 0 20px rgba(212, 175, 55, 0.2);
+    transform: translateY(-2px);
+}
+
+/* Esitäytön korostus (v1.5) */
 @keyframes prefillHighlight {
-    0% { box-shadow: 0 0 0 0 rgba(212, 175, 55, 0.7); transform: scale(1); }
-    50% { box-shadow: 0 0 20px 10px rgba(212, 175, 55, 0); transform: scale(1.05); }
-    100% { box-shadow: 0 0 0 0 rgba(212, 175, 55, 0); transform: scale(1); }
+    0% { box-shadow: 0 0 0 0 rgba(212, 175, 55, 0.7); }
+    50% { box-shadow: 0 0 20px 10px rgba(212, 175, 55, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(212, 175, 55, 0); }
+}
+
+/* --- NAPIT --- */
+.btn {
+    display: block;
+    width: 100%;
+    padding: 1.2rem;
+    border-radius: 15px;
+    border: none;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    margin-bottom: 1rem;
+    transition: all 0.3s ease;
+}
+
+.btn-primary {
+    background: var(--rose-gold);
+    color: #000;
+}
+
+#quick-accept-btn {
+    background: linear-gradient(135deg, #4caf50, #45a049);
+    color: white;
+    margin-bottom: 2rem;
+}
+
+.btn-outline {
+    background: transparent;
+    border: 1px solid var(--glass-border);
+    color: white;
+}
+
+/* --- TULOKSET JA MATCHIT --- */
+.match-badge {
+    background: linear-gradient(135deg, #d4af37 0%, #f1d592 50%, #d4af37 100%);
+    color: #000;
+    padding: 12px 24px;
+    border-radius: 50px;
+    font-weight: 700;
+    box-shadow: 0 4px 20px rgba(212, 175, 55, 0.4);
+    animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes popIn {
+    0% { opacity: 0; transform: scale(0.5); }
+    100% { opacity: 1; transform: scale(1); }
 }
 
 .changes-preview {
@@ -156,59 +157,10 @@ body {
     border: 1px solid var(--glass-border);
     border-radius: 12px;
     padding: 1.5rem;
-    backdrop-filter: blur(10px);
-    margin: 1.5rem 0;
+    margin: 2rem 0;
 }
 
-.match-badge {
-    background: linear-gradient(135deg, #d4af37 0%, #f1d592 50%, #d4af37 100%);
-    background-size: 200% auto;
-    color: #000;
-    padding: 12px 24px;
-    border-radius: 50px;
-    font-size: 0.9rem;
-    font-weight: 700;
-    letter-spacing: 1px;
-    box-shadow: 0 4px 20px rgba(212, 175, 55, 0.4);
-    animation: shine 3s linear infinite, popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    border: 1px solid rgba(255,255,255,0.3);
-}
-
-@keyframes shine {
-    to { background-position: 200% center; }
-}
-
-@keyframes popIn {
-    0% { opacity: 0; transform: scale(0.5); }
-    60% { transform: scale(1.1); }
-    100% { opacity: 1; transform: scale(1); }
-}
-
-#quick-accept-btn {
-    background: linear-gradient(135deg, #4caf50, #45a049);
-    color: white;
-    margin-bottom: 1.5rem;
-}
-
-/* --- MISC --- */
-.session-info {
-    text-align: center;
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-    margin-bottom: 2rem;
-}
-
-input[type="checkbox"] {
-    margin-right: 10px;
-    accent-color: var(--rose-gold);
-}
-
-label {
-    display: block;
-    padding: 0.5rem 0;
-    cursor: pointer;
-}
-
+/* Mobiilioptimointi */
 @media (max-width: 768px) {
-    .grid { grid-template-columns: 1fr 1fr; }
+    .container { padding: 1rem; }
 }
