@@ -1,36 +1,34 @@
-# 🌙 Vibe Checker v1.0
+# 🌙 Vibe Checker v1.1 - Realtime Edition
 
-**Vibe Checker** on intiimi kommunikaatiotyökalu, joka on suunniteltu auttamaan kumppaneita löytämään yhteinen sävel ja tunnelma ilman painostusta. Sovellus mahdollistaa toiveiden ja rajojen tutkimisen turvallisessa, digitaalisessa ympäristössä.
+**Vibe Checker** on intiimi kommunikaatiotyökalu, joka auttaa kumppaneita löytämään yhteisen sävelen ilman painostusta. Sovellus mahdollistaa toiveiden ja rajojen tutkimisen turvallisessa, digitaalisessa ympäristössä reaaliajassa.
 
 
 
-## ✨ Ominaisuudet
+## ✨ Uusimmat ominaisuudet (v1.1)
 
-* **Reaaliaikainen synkronointi:** Käyttää Google Firebasea viestien välittämiseen sekunneissa.
-* **Vibe Match -logiikka:** Sovellus vertaa molempien osapuolten valintoja ja korostaa vain ne asiat, joita kumpikin haluaa (Matches).
-* **Anonyymi & Turvallinen:** Ei vaadi rekisteröitymistä. Sessiot perustuvat lyhytikäisiin, satunnaisiin koodeihin.
-* **Dynaamiset valinnat:** Tukee laajaa skaalaa kategorioita: tunnelma, fokus, tempo, asusteet, materiaalit ja erityistoiveet.
-* **Responsiivinen ulkoasu:** Suunniteltu ensisijaisesti mobiilikäyttöön "hetken huumassa".
+* **Optimoitu Firebase-arkkitehtuuri:** Siirrytty Supabasesta Firebase Firestoreen paremman suorituskyvyn ja skaalautuvuuden vuoksi.
+* **Reaaliaikainen Vibe Match:** Sovellus vertaa vastauksia lennosta. Kun molemmat ovat valmiita, yhteiset osumat (Matches) ilmestyvät ruudulle automaattisesti.
+* **Yhden dokumentin logiikka:** Estää duplikaatit tietokannassa; jokaisella sessiolla ja käyttäjäroolilla on oma kiinteä paikkansa.
+* **Automaattinen linkin luku:** Kumppani pääsee suoraan oikeaan sessioon URL-parametrin (`?session=ID`) kautta.
+* **Responsiivinen Glassmorphism-UI:** Moderni, tumma teema, joka on optimoitu mobiilikäyttöön.
 
 ## 🚀 Tekniikka
 
-Projekti on rakennettu moderneilla web-tekniikoilla ilman raskaita kirjastoja (Vanilla JS):
-
-* **Frontend:** HTML5, CSS3 (Custom Variables & Glassmorphism)
-* **Backend:** [Google Firebase Firestore](https://firebase.google.com/) (NoSQL Database)
-* **Hosting:** Netlify / Vercel
-* **Versionhallinta:** GitHub
+* **Frontend:** Vanilla JS (ES6+), HTML5, CSS3 (Custom Variables & Animations)
+* **Backend:** [Google Firebase Firestore](https://firebase.google.com/)
+* **Hosting:** [Vercel](https://vercel.com/) (CI/CD kytketty GitHubiin)
+* **Status:** Tuotannossa (Stable)
 
 
-## 📈 Roadmap (v1.5 & v2.0)
+## 📈 Roadmap (Seuraavaksi vuorossa)
 
-- [ ] **Neuvottelutila:** Mahdollisuus vastata kumppanin ehdotukseen muokkaamalla sitä.
-- [ ] **XP-järjestelmä:** Kerää pisteitä ja saavutuksia avoimesta kommunikaatiosta.
-- [ ] **Kamasutra-kirjasto:** Tietopankki asennoista ja tekniikoista inspiraation tueksi.
-- [ ] **Sessiohistoria:** Tallenna parhaat "Matchit" muistoksi LocalStorageen.
+- [ ] **v1.5 Neuvottelutila:** Mahdollisuus nähdä kumppanin ehdotus pohjana ja muokata sitä.
+- [ ] **Gamification:** XP-järjestelmä ja saavutukset avoimesta kommunikaatiosta.
+- [ ] **Inspiratio-osio:** Kamasutra-vinkkejä ja uusia kokeiltavia asioita.
 
 ## 📜 Lisenssi
 
-Tämä projekti on luotu harrastustarkoituksessa edistämään terveellistä kommunikaatiota parisuhteissa. Kaikki oikeudet pidätetään.
+Tämä projekti on avointa koodia ja tarkoitettu parantamaan parisuhteiden välistä kommunikaatiota.
+
 ---
-*Luotu intohimolla ja ripauksella tekoälyä.*
+*Kehitetty vauhdilla, intohimolla ja tarkalla koodianalyysillä.*
