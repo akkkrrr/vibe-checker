@@ -747,3 +747,26 @@ function deleteHistorySession(index) {
 
 // Globaalit funktiot (käytettävissä HTML:stä)
 window.deleteHistorySession = deleteHistorySession;
+
+// Tallenna historiaan kun match tapahtuu
+function saveMatchToHistory() {
+    if (!state.myProposal || !state.partnerProposal) return;
+    
+    const historyEntry = {
+        sessionId: state.sessionId,
+        timestamp: new Date().toISOString(),
+        mySelections: state.myProposal.details || state.myProposal,
+        partnerSelections: state.partnerProposal.details || state.partnerProposal,
+        status: 'matched'
+    };
+    
+    let history = JSON.parse(localStorage.getItem('vibe_history') || '[]');
+    history.unshift(historyEntry);
+    
+    // Säilytä max 20 sessiota
+    if (history.length > 20) {
+        history = history.slice(0, 20);
+    }
+    
+    localStorage.setItem('vibe_history', JSON.stringify(history));
+}
