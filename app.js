@@ -482,6 +482,105 @@ document.addEventListener('DOMContentLoaded', () => {
         if (id) joinSession(id.toUpperCase());
     };
 
+    // Navigointi (Etusivu / Historia)
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const target = btn.getAttribute('data-nav');
+            if (navigator.vibrate) navigator.vibrate(10);
+            showScreen(target);
+            
+            // Päivitä aktiivinen tila
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll(`[data-nav="${target}"]`).forEach(b => b.classList.add('active'));
+            
+            // Lataa historia jos mennään historiaan
+            if (target === 'history') loadHistory();
+        });
+    });
+
+    // Session-toiminnot
+    const copyLinkBtn = document.getElementById('copy-link-btn');
+    if (copyLinkBtn) {
+        copyLinkBtn.onclick = () => {
+            const url = window.location.href;
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(url).then(() => {
+                    if (navigator.vibrate) navigator.vibrate(20);
+                    notify('🔗 Linkki kopioitu!');
+                });
+            }
+        };
+    }
+
+    const cancelSessionBtn = document.getElementById('cancel-session-btn');
+    if (cancelSessionBtn) {
+        cancelSessionBtn.onclick = () => {
+            if (confirm('Haluatko varmasti peruuttaa session?')) {
+                if (navigator.vibrate) navigator.vibrate(30);
+                stopListening();
+                state.sessionId = null;
+                state.userRole = null;
+                state.currentRound = 1;
+                state.myProposal = null;
+                state.partnerProposal = null;
+                state.originalProposal = null;
+                clearAllSelections();
+                window.history.pushState({}, '', window.location.pathname);
+                showScreen('welcome');
+                notify('✕ Sessio peruutettu');
+            }
+        };
+    }
+
+    const backToEditBtn = document.getElementById('back-to-edit-btn');
+    if (backToEditBtn) {
+        backToEditBtn.onclick = () => {
+            if (navigator.vibrate) navigator.vibrate(10);
+            showScreen('selection');
+        };
+    }
+
+    const cancelProposalBtn = document.getElementById('cancel-proposal-btn');
+    if (cancelProposalBtn) {
+        cancelProposalBtn.onclick = () => {
+            if (confirm('Haluatko perua ehdotuksen ja palata etusivulle?')) {
+                if (navigator.vibrate) navigator.vibrate(30);
+                stopListening();
+                state.sessionId = null;
+                state.userRole = null;
+                clearAllSelections();
+                window.history.pushState({}, '', window.location.pathname);
+                showScreen('welcome');
+                notify('✕ Ehdotus peruutettu');
+            }
+        };
+    }
+
+    // Help modal
+    const helpBtn = document.getElementById('help-btn');
+    const helpModal = document.getElementById('help-modal');
+    const modalClose = document.getElementById('modal-close');
+    
+    if (helpBtn && helpModal) {
+        helpBtn.onclick = () => {
+            if (navigator.vibrate) navigator.vibrate(10);
+            helpModal.classList.add('active');
+        };
+    }
+    
+    if (modalClose && helpModal) {
+        modalClose.onclick = () => {
+            helpModal.classList.remove('active');
+        };
+        
+        // Sulje kun klikataan modalin taustaa
+        helpModal.onclick = (e) => {
+            if (e.target === helpModal) {
+                helpModal.classList.remove('active');
+            }
+        };
+    }
+
     // Korttien klikkaus
     document.addEventListener('click', (e) => {
         const card = e.target.closest('.mood-card, .time-btn');
@@ -512,3 +611,59 @@ document.addEventListener('DOMContentLoaded', () => {
     // Cleanup
     window.addEventListener('beforeunload', stopListening);
 });
+
+// --- HISTORIA ---
+function loadHistory() {
+    const historyList = document.getElementById('history-list');
+    if (!historyList) return;
+    
+    const history = JSON.parse(localStorage.getItem('vibe_history') || '[]');
+    
+    if (history.length === 0) {
+        historyList.innerHTML = `
+            <div class="empty-history">
+                <div class="empty-history-icon">📚</div>
+                <p>Ei vielä toteutuneita sessioita</p>
+                <p class="info-text-small">Hyväksytyt sessiot näkyvät täällä</p>
+            </div>
+        `;
+        return;
+    }
+    
+    historyList.innerHTML = history.map((session, index) => {
+        const date = new Date(session.timestamp);
+        const dateStr = date.toLocaleDateString('fi-FI', { day: 'numeric', month: 'long', year: 'numeric' });
+        const timeStr = date.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' });
+        
+        return `
+            <div class="history-card">
+                <div class="history-header">
+                    <span class="history-date">${dateStr} ${timeStr}</span>
+                    <span class="history-badge">✓ Toteutunut</span>
+                </div>
+                <div class="history-summary">
+                    <strong>${session.mySelections?.mood || 'Ei valittu'}</strong> • 
+                    ${session.mySelections?.focus || 'Ei valittu'}
+                </div>
+                <button class="btn btn-outline btn-tiny" onclick="deleteHistorySession(${index})">
+                    🗑️ Poista
+                </button>
+            </div>
+        `;
+    }).join('');
+}
+
+function deleteHistorySession(index) {
+    if (!confirm('Poista tämä sessio historiasta?')) return;
+    if (navigator.vibrate) navigator.vibrate(20);
+    
+    let history = JSON.parse(localStorage.getItem('vibe_history') || '[]');
+    history.splice(index, 1);
+    localStorage.setItem('vibe_history', JSON.stringify(history));
+    
+    loadHistory();
+    notify('🗑️ Sessio poistettu');
+}
+
+// Globaalit funktiot (käytettävissä HTML:stä)
+window.deleteHistorySession = deleteHistorySession;
