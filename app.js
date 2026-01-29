@@ -915,7 +915,7 @@ if (acceptProposalBtn) acceptProposalBtn.addEventListener('click', acceptProposa
 if (viewMatchDetailsBtn) viewMatchDetailsBtn.addEventListener('click', () => { matchModal.classList.remove('active'); });
 if (copySummaryBtn) copySummaryBtn.addEventListener('click', copySummary);
 if (cancelMatchedSessionBtn) cancelMatchedSessionBtn.addEventListener('click', cancelMatchedSession);
-counterProposalBtn.addEventListener('click', () => { vibrate(10); showScreen('selection'); showNotification('Muokkaa valintojasi ja lähetä uudelleen!'); });
+if (counterProposalBtn) counterProposalBtn.addEventListener('click', () => { vibrate(10); showScreen('selection'); showNotification('Muokkaa valintojasi ja lähetä uudelleen!'); });
 newSessionBtn.addEventListener('click', () => { vibrate(20); if (state.realtimeChannel) state.realtimeChannel.unsubscribe(); state.sessionId = null; state.userRole = null; clearSelections(); window.history.pushState({}, '', window.location.pathname); showScreen('welcome'); });
 
 function init() {
