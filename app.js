@@ -119,7 +119,7 @@ function prefillForm(details) {
     // Tyhjennä ensin
     clearAllSelections();
     
-    // Valitse kortit
+    // Valitse kortit - KAIKKI kategoriat
     if (details.mood) {
         const moodCard = document.querySelector(`[data-mood="${details.mood}"]`);
         if (moodCard) {
@@ -133,6 +133,46 @@ function prefillForm(details) {
         if (focusCard) {
             focusCard.classList.add('selected');
             focusCard.style.animation = 'prefillHighlight 1s ease';
+        }
+    }
+    
+    if (details.tempo) {
+        const tempoCard = document.querySelector(`[data-tempo="${details.tempo}"]`);
+        if (tempoCard) {
+            tempoCard.classList.add('selected');
+            tempoCard.style.animation = 'prefillHighlight 1s ease';
+        }
+    }
+    
+    if (details.intensity) {
+        const intensityCard = document.querySelector(`[data-intensity="${details.intensity}"]`);
+        if (intensityCard) {
+            intensityCard.classList.add('selected');
+            intensityCard.style.animation = 'prefillHighlight 1s ease';
+        }
+    }
+    
+    if (details.control) {
+        const controlCard = document.querySelector(`[data-control="${details.control}"]`);
+        if (controlCard) {
+            controlCard.classList.add('selected');
+            controlCard.style.animation = 'prefillHighlight 1s ease';
+        }
+    }
+    
+    if (details.role) {
+        const roleCard = document.querySelector(`[data-role="${details.role}"]`);
+        if (roleCard) {
+            roleCard.classList.add('selected');
+            roleCard.style.animation = 'prefillHighlight 1s ease';
+        }
+    }
+    
+    if (details.time) {
+        const timeCard = document.querySelector(`[data-time="${details.time}"]`);
+        if (timeCard) {
+            timeCard.classList.add('selected');
+            timeCard.style.animation = 'prefillHighlight 1s ease';
         }
     }
     
@@ -453,6 +493,9 @@ function renderResults() {
     showScreen('results');
     const container = document.getElementById('results-screen').querySelector('.container');
     
+    // Tallenna historiaan
+    saveMatchToHistory();
+    
     const myDetails = state.myProposal?.details || {};
     const pDetails = state.partnerProposal?.details || {};
 
@@ -470,6 +513,27 @@ function renderResults() {
             matches.push(myVal);
         }
     });
+    
+    // Rakenna yksityiskohtainen yhteenveto
+    const buildSummary = (details) => {
+        const items = [];
+        if (details.mood) items.push(`Tunnelma: ${details.mood}`);
+        if (details.focus) items.push(`Fokus: ${details.focus}`);
+        if (details.tempo) items.push(`Tempo: ${details.tempo}`);
+        if (details.intensity) items.push(`Intensiteetti: ${details.intensity}`);
+        if (details.control) items.push(`Kontrolli: ${details.control}`);
+        if (details.role) items.push(`Rooli: ${details.role}`);
+        if (details.timeDisplay) items.push(`Aika: ${details.timeDisplay}`);
+        
+        // Lisää checkboxit
+        Object.entries(details).forEach(([key, values]) => {
+            if (Array.isArray(values) && values.length > 0) {
+                items.push(...values);
+            }
+        });
+        
+        return items.filter(Boolean).join(' • ');
+    };
 
     container.innerHTML = `
         <div class="results-header">
@@ -488,11 +552,11 @@ function renderResults() {
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                 <div style="text-align: left;">
                     <h4 style="font-size: 0.8rem; opacity: 0.5; margin-bottom: 10px;">SINUN TOIVEET</h4>
-                    <div style="font-size: 0.9rem;">${Object.values(myDetails).flat().filter(v => v && v !== "ei valittu").join(' • ')}</div>
+                    <div style="font-size: 0.9rem; line-height: 1.8;">${buildSummary(myDetails)}</div>
                 </div>
                 <div style="text-align: right;">
                     <h4 style="font-size: 0.8rem; opacity: 0.5; margin-bottom: 10px;">KUMPPANIN TOIVEET</h4>
-                    <div style="font-size: 0.9rem; color: var(--rose-gold);">${Object.values(pDetails).flat().filter(v => v && v !== "ei valittu").join(' • ')}</div>
+                    <div style="font-size: 0.9rem; color: var(--rose-gold); line-height: 1.8;">${buildSummary(pDetails)}</div>
                 </div>
             </div>
         </div>
