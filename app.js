@@ -30,7 +30,8 @@ const state = {
     originalProposal: null,
     myUnsubscribe: null,
     partnerUnsubscribe: null,
-    notificationPermission: false
+    notificationPermission: false,
+    user: null  // ← Valmius Phase 3 Auth:lle
 };
 
 const MAX_ROUNDS = 3;
@@ -337,10 +338,32 @@ function prefillForm(details) {
     
     // Time
     if (details.time) {
-        const card = document.querySelector(`[data-time="${details.time}"]`);
-        if (card) {
-            card.classList.add('selected');
-            card.style.animation = 'prefillHighlight 1s ease';
+        if (details.time === 'custom' && details.timeDisplay) {
+            // Slider: käytä custom aikaa
+            const timeSlider = document.getElementById('time-slider');
+            const timeDisplay = document.getElementById('time-val');
+            
+            if (timeSlider && timeDisplay) {
+                // Parse HH:MM
+                const [hours, mins] = details.timeDisplay.split(':').map(Number);
+                const totalMinutes = hours * 60 + mins;
+                
+                timeSlider.value = totalMinutes;
+                timeDisplay.textContent = details.timeDisplay;
+                timeSlider.classList.add('selected');
+                
+                // Päivitä progress bar
+                const progress = (totalMinutes / 1440) * 100;
+                timeSlider.style.setProperty('--slider-progress', `${progress}%`);
+                timeSlider.style.animation = 'prefillHighlight 1s ease';
+            }
+        } else {
+            // Kortit
+            const card = document.querySelector(`[data-time="${details.time}"]`);
+            if (card) {
+                card.classList.add('selected');
+                card.style.animation = 'prefillHighlight 1s ease';
+            }
         }
     }
     
@@ -495,6 +518,18 @@ async function submitSelection() {
             timeDisplay = el.dataset.timeDisplay || el.textContent.trim();
         }
     });
+    
+    // Tarkista slider (jos ei korttia valittu)
+    if (!time) {
+        const timeSlider = document.getElementById('time-slider');
+        if (timeSlider && timeSlider.classList.contains('selected')) {
+            const minutes = parseInt(timeSlider.value);
+            const hours = Math.floor(minutes / 60);
+            const mins = minutes % 60;
+            time = 'custom';
+            timeDisplay = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+        }
+    }
 
     // Kerää checkboxit
     document.querySelectorAll('input[type="checkbox"]:checked').forEach(c => {
@@ -766,12 +801,13 @@ function saveMatchToHistory() {
     
     const historyEntry = {
         sessionId: state.sessionId,
-        timestamp: new Date().toISOString(),
+        timestamp: new Date().toISOString(),  // LocalStorage: ISO string
         mySelections: myDetails,
         partnerSelections: pDetails,
         status: 'matched'
     };
     
+    // LocalStorage (anonyymi + nopea)
     let history = JSON.parse(localStorage.getItem('vibe_history') || '[]');
     history.unshift(historyEntry);
     
@@ -780,6 +816,21 @@ function saveMatchToHistory() {
     }
     
     localStorage.setItem('vibe_history', JSON.stringify(history));
+    
+    // Firestore (kirjautunut, Phase 3)
+    if (state.user) {
+        db.collection('users')
+            .doc(state.user.uid)
+            .collection('history')
+            .add({
+                sessionId: state.sessionId,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),  // ← Server timestamp!
+                mySelections: myDetails,
+                partnerSelections: pDetails,
+                status: 'matched'
+            })
+            .catch((err) => console.error('Firestore history save failed:', err));
+    }
 }
 
 function loadHistory() {
@@ -1020,12 +1071,42 @@ document.addEventListener('DOMContentLoaded', () => {
     const copyLinkBtn = document.getElementById('copy-link-btn');
     if (copyLinkBtn) {
         copyLinkBtn.onclick = () => {
-            const url = window.location.href;
+            if (!state.sessionId) {
+                notify('❌ Luo sessio ensin!');
+                if (navigator.vibrate) navigator.vibrate([10, 50, 10]);
+                return;
+            }
+            
+            const url = `${window.location.origin}${window.location.pathname}?session=${state.sessionId}`;
+            const originalHTML = copyLinkBtn.innerHTML;
+            
             if (navigator.clipboard) {
                 navigator.clipboard.writeText(url).then(() => {
                     if (navigator.vibrate) navigator.vibrate(20);
+                    
+                    // Visuaalinen palaute
+                    copyLinkBtn.innerHTML = '✅ Kopioitu!';
+                    copyLinkBtn.style.background = 'linear-gradient(135deg, #4caf50, #388e3c)';
+                    
+                    setTimeout(() => {
+                        copyLinkBtn.innerHTML = originalHTML;
+                        copyLinkBtn.style.background = '';
+                    }, 2000);
+                    
                     notify('🔗 Linkki kopioitu!');
+                }).catch(() => {
+                    // Fallback if clipboard API fails
+                    copyLinkBtn.innerHTML = '📋 ' + url;
+                    setTimeout(() => {
+                        copyLinkBtn.innerHTML = originalHTML;
+                    }, 5000);
                 });
+            } else {
+                // Fallback for older browsers
+                copyLinkBtn.innerHTML = '📋 ' + url;
+                setTimeout(() => {
+                    copyLinkBtn.innerHTML = originalHTML;
+                }, 5000);
             }
         };
     }
@@ -1136,8 +1217,64 @@ document.addEventListener('DOMContentLoaded', () => {
             parent.querySelectorAll('.mood-card, .time-btn').forEach(c => c.classList.remove('selected'));
             card.classList.add('selected');
             if (navigator.vibrate) navigator.vibrate(10);
+            
+            // Jos time-btn klikattu, deselektoi slider
+            if (card.classList.contains('time-btn')) {
+                const slider = document.getElementById('time-slider');
+                if (slider) slider.classList.remove('selected');
+            }
         }
     });
+    
+    // Time slider logic
+    const timeSlider = document.getElementById('time-slider');
+    const timeDisplay = document.getElementById('time-val');
+    
+    if (timeSlider && timeDisplay) {
+        // Päivitä näyttö kun slideria liikutetaan
+        timeSlider.addEventListener('input', (e) => {
+            const minutes = parseInt(e.target.value);
+            const hours = Math.floor(minutes / 60);
+            const mins = minutes % 60;
+            const timeString = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+            
+            timeDisplay.textContent = timeString;
+            
+            // Päivitä progress bar
+            const progress = (minutes / 1440) * 100;
+            e.target.style.setProperty('--slider-progress', `${progress}%`);
+            
+            // Värinä
+            if (navigator.vibrate) navigator.vibrate(5);
+        });
+        
+        // Kun slider valitaan, deselektoi kortit ja merkitse slider valituksi
+        timeSlider.addEventListener('change', (e) => {
+            // Deselektoi kaikki time-btn kortit
+            document.querySelectorAll('.time-btn').forEach(btn => btn.classList.remove('selected'));
+            
+            // Merkitse slider valituksi
+            timeSlider.classList.add('selected');
+            
+            // Tallenna state
+            const minutes = parseInt(e.target.value);
+            const hours = Math.floor(minutes / 60);
+            const mins = minutes % 60;
+            const timeString = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+            
+            // Tallennetaan custom-arvona
+            if (state.myProposal && state.myProposal.details) {
+                state.myProposal.details.time = 'custom';
+                state.myProposal.details.timeDisplay = timeString;
+            }
+            
+            if (navigator.vibrate) navigator.vibrate(20);
+        });
+        
+        // Alusta progress bar
+        const initialProgress = (parseInt(timeSlider.value) / 1440) * 100;
+        timeSlider.style.setProperty('--slider-progress', `${initialProgress}%`);
+    }
 
     // Theme toggle
     const themeBtn = document.getElementById('theme-toggle');
@@ -1156,4 +1293,31 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Cleanup
     window.addEventListener('beforeunload', stopListening);
+    
+    // Register Service Worker (PWA)
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js')
+                .then((registration) => {
+                    console.log('✅ SW registered:', registration.scope);
+                    
+                    // Check for updates
+                    registration.addEventListener('updatefound', () => {
+                        const newWorker = registration.installing;
+                        newWorker.addEventListener('statechange', () => {
+                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                // New version available
+                                if (confirm('🆕 Uusi versio saatavilla! Päivitä nyt?')) {
+                                    newWorker.postMessage({ type: 'SKIP_WAITING' });
+                                    window.location.reload();
+                                }
+                            }
+                        });
+                    });
+                })
+                .catch((err) => {
+                    console.log('❌ SW registration failed:', err);
+                });
+        });
+    }
 });
