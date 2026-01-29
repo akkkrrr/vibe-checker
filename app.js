@@ -1,8 +1,14 @@
+const SUPABASE_URL = 'https://lromnuelyivvivqhzoch.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxyb21udWVseWl2dml2cWh6b2NoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk2MzE1ODgsImV4cCI6MjA4NTIwNzU4OH0.qddbQGEMVzp9zlX33jmx7ysLweE9P1LF8EAHB3R6K5E';
+
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 const state = {
     currentScreen: 'welcome',
     sessionId: null,
     userRole: null,
     theme: localStorage.getItem('theme') || 'dark',
+    realtimeChannel: null,
     selections: {
         mood: null,
         focus: null,
@@ -135,20 +141,109 @@ function generateSessionId() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
-function createSession() {
+async function createSession() {
     vibrate(20);
     const sessionId = generateSessionId();
+    
+    const { data, error } = await supabase
+        .from('sessions')
+        .insert([{ id: sessionId, status: 'waiting_for_first' }])
+        .select()
+        .single();
+    
+    if (error) {
+        console.error('Error creating session:', error);
+        showNotification('❌ Virhe session luonnissa!');
+        return;
+    }
+    
     state.sessionId = sessionId;
     state.userRole = 'partner_a';
     window.history.pushState({}, '', `?session=${sessionId}`);
     sessionIdDisplay.textContent = sessionId;
+    
+    setupRealtimeListener();
+    
     showScreen('selection');
     showNotification(`✨ Sessio luotu! ID: ${sessionId}`);
+}
+
+function setupRealtimeListener() {
+    if (state.realtimeChannel) {
+        state.realtimeChannel.unsubscribe();
+    }
+    
+    state.realtimeChannel = supabase
+        .channel(`session:${state.sessionId}`)
+        .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'sessions',
+            filter: `id=eq.${state.sessionId}`
+        }, (payload) => {
+            handleSessionUpdate(payload);
+        })
+        .on('postgres_changes', {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'proposals',
+            filter: `session_id=eq.${state.sessionId}`
+        }, (payload) => {
+            handleProposalUpdate(payload);
+        })
+        .subscribe();
+}
+
+async function handleSessionUpdate(payload) {
+    console.log('Session updated:', payload);
+    const newStatus = payload.new.status;
+    
+    if (newStatus === 'matched') {
+        vibrate(50);
+        const { data: proposals } = await supabase
+            .from('proposals')
+            .select('*')
+            .eq('session_id', state.sessionId)
+            .order('created_at', { ascending: false })
+            .limit(2);
+        
+        if (proposals && proposals.length > 0) {
+            const proposal = proposals[0];
+            showMatchModal(proposal.time_display || '19:00');
+            
+            saveToHistory({
+                sessionId: state.sessionId,
+                timestamp: new Date().toISOString(),
+                proposedTime: proposal.time_display,
+                mySelections: state.selections,
+                partnerSelections: proposal,
+                status: 'matched'
+            });
+        }
+    }
+}
+
+async function handleProposalUpdate(payload) {
+    console.log('New proposal:', payload);
+    
+    const proposal = payload.new;
+    const proposerRole = proposal.user_role;
+    
+    if (proposerRole !== state.userRole && state.currentScreen === 'results') {
+        vibrate(30);
+        showNotification('💌 Kumppani lähetti vastauksen!');
+        await loadPartnerProposal();
+    }
 }
 
 function cancelSession() {
     if (!confirm('Haluatko varmasti peruuttaa session?')) return;
     vibrate(20);
+    
+    if (state.realtimeChannel) {
+        state.realtimeChannel.unsubscribe();
+    }
+    
     state.sessionId = null;
     state.userRole = null;
     clearSelections();
@@ -177,44 +272,79 @@ function joinSession() {
     state.userRole = 'partner_b';
     window.history.pushState({}, '', `?session=${sessionId}`);
     sessionIdDisplay.textContent = sessionId;
+    
+    setupRealtimeListener();
+    checkExistingProposal();
+    
     showScreen('selection');
 }
 
-function checkUrlForSession() {
+async function checkUrlForSession() {
     const urlParams = new URLSearchParams(window.location.search);
     const sessionId = urlParams.get('session');
+    
     if (sessionId) {
         state.sessionId = sessionId;
         
-        const sessionData = getSessionData(sessionId);
-        if (sessionData && sessionData.status === 'waiting_for_b') {
-            state.userRole = 'partner_b';
-            sessionIdDisplay.textContent = sessionId;
-            showPartnerProposalScreen(sessionData);
-        } else {
-            state.userRole = 'partner_b';
-            sessionIdDisplay.textContent = sessionId;
-            showScreen('selection');
+        const { data: session, error } = await supabase
+            .from('sessions')
+            .select('*')
+            .eq('id', sessionId)
+            .single();
+        
+        if (error || !session) {
+            showNotification('❌ Sessiota ei löytynyt!');
+            return;
         }
+        
+        state.userRole = 'partner_b';
+        sessionIdDisplay.textContent = sessionId;
+        
+        setupRealtimeListener();
+        
+        await checkExistingProposal();
     }
 }
 
-function getSessionData(sessionId) {
-    const data = localStorage.getItem(`session_${sessionId}`);
-    return data ? JSON.parse(data) : null;
+async function checkExistingProposal() {
+    const { data: proposals } = await supabase
+        .from('proposals')
+        .select('*')
+        .eq('session_id', state.sessionId)
+        .eq('user_role', 'partner_a')
+        .order('created_at', { ascending: false })
+        .limit(1);
+    
+    if (proposals && proposals.length > 0) {
+        showPartnerProposalScreen(proposals[0]);
+    } else {
+        showScreen('selection');
+    }
 }
 
-function saveSessionData(sessionId, data) {
-    localStorage.setItem(`session_${sessionId}`, JSON.stringify(data));
+async function loadPartnerProposal() {
+    const partnerRole = state.userRole === 'partner_a' ? 'partner_b' : 'partner_a';
+    
+    const { data: proposals } = await supabase
+        .from('proposals')
+        .select('*')
+        .eq('session_id', state.sessionId)
+        .eq('user_role', partnerRole)
+        .order('created_at', { ascending: false })
+        .limit(1);
+    
+    if (proposals && proposals.length > 0) {
+        showPartnerProposalScreen(proposals[0]);
+    }
 }
 
-function showPartnerProposalScreen(sessionData) {
+function showPartnerProposalScreen(proposal) {
     showScreen('results');
     waitingState.style.display = 'none';
     matchResults.style.display = 'block';
     partnerProposalView.style.display = 'block';
     
-    displayPartnerProposalSummary(sessionData.partner_a_proposal);
+    displayPartnerProposalSummary(proposal);
 }
 
 function displayPartnerProposalSummary(proposal) {
@@ -230,11 +360,11 @@ function displayPartnerProposalSummary(proposal) {
     let displayParts = [];
     if (proposal.mood) displayParts.push(labels.mood[proposal.mood] || proposal.mood);
     if (proposal.focus) displayParts.push(labels.focus[proposal.focus] || proposal.focus);
-    if (proposal.timeDisplay) displayParts.push(`🕐 ${proposal.timeDisplay}`);
+    if (proposal.time_display) displayParts.push(`🕐 ${proposal.time_display}`);
     
     moodEl.textContent = displayParts.join(' • ');
     
-    const allSpices = [...(proposal.communication || []), ...(proposal.outfits || []), ...(proposal.nylon || []), ...(proposal.senses || []), ...(proposal.bdsm || []), ...(proposal.toys || []), ...(proposal.specialFocus || []), ...(proposal.safety || [])];
+    const allSpices = [...(proposal.communication || []), ...(proposal.outfits || []), ...(proposal.nylon || []), ...(proposal.senses || []), ...(proposal.bdsm || []), ...(proposal.toys || []), ...(proposal.special_focus || []), ...(proposal.safety || [])];
     spicesEl.innerHTML = '';
     allSpices.forEach(spice => {
         const tag = document.createElement('span');
@@ -244,28 +374,21 @@ function displayPartnerProposalSummary(proposal) {
     });
 }
 
-function acceptProposal() {
+async function acceptProposal() {
     vibrate(50);
-    const sessionData = getSessionData(state.sessionId);
-    if (!sessionData) return;
     
-    sessionData.status = 'matched';
-    sessionData.matched = true;
-    sessionData.matchedAt = new Date().toISOString();
-    sessionData.partner_b_proposal = sessionData.partner_a_proposal;
-    saveSessionData(state.sessionId, sessionData);
+    const { error } = await supabase
+        .from('sessions')
+        .update({ status: 'matched', matched_at: new Date().toISOString() })
+        .eq('id', state.sessionId);
     
-    const historyData = {
-        sessionId: state.sessionId,
-        timestamp: sessionData.matchedAt,
-        proposedTime: sessionData.partner_a_proposal.timeDisplay,
-        mySelections: sessionData.partner_a_proposal,
-        partnerSelections: sessionData.partner_a_proposal,
-        status: 'matched'
-    };
-    saveToHistory(historyData);
+    if (error) {
+        console.error('Error accepting:', error);
+        showNotification('❌ Virhe hyväksynnässä!');
+        return;
+    }
     
-    showMatchModal(sessionData.partner_a_proposal.timeDisplay);
+    showNotification('✅ Hyväksytty!');
 }
 
 function showMatchModal(timeStr) {
@@ -285,7 +408,6 @@ function createConfetti() {
     if (!container) return;
     
     container.innerHTML = '';
-    
     const colors = ['#d4af37', '#ff2d55', '#4caf50', '#2196f3', '#ff9800'];
     
     for (let i = 0; i < 50; i++) {
@@ -299,30 +421,35 @@ function createConfetti() {
     }
 }
 
-function showMatchedResults() {
+async function showMatchedResults() {
     partnerProposalView.style.display = 'none';
     matchedView.style.display = 'block';
     if (cancelMatchedSessionBtn) cancelMatchedSessionBtn.style.display = 'block';
     
-    const sessionData = getSessionData(state.sessionId);
-    if (sessionData && sessionData.partner_a_proposal) {
-        updateCountdown(sessionData.partner_a_proposal.timeDisplay);
-        displayPartnerResults('a', sessionData.partner_a_proposal);
-        displayPartnerResults('b', sessionData.partner_a_proposal);
+    const { data: proposals } = await supabase
+        .from('proposals')
+        .select('*')
+        .eq('session_id', state.sessionId)
+        .order('created_at', { ascending: false })
+        .limit(2);
+    
+    if (proposals && proposals.length > 0) {
+        const proposal = proposals[0];
+        updateCountdown(proposal.time_display);
+        displayPartnerResults('a', proposal);
+        displayPartnerResults('b', proposal);
     }
 }
 
 function updateCountdown(timeStr) {
-    if (!countdownText) return;
+    if (!countdownText || !timeStr) return;
     
     const [hours, minutes] = timeStr.split(':').map(Number);
     const now = new Date();
     const target = new Date();
     target.setHours(hours, minutes, 0);
     
-    if (target < now) {
-        target.setDate(target.getDate() + 1);
-    }
+    if (target < now) target.setDate(target.getDate() + 1);
     
     const diff = target - now;
     const hoursLeft = Math.floor(diff / (1000 * 60 * 60));
@@ -333,17 +460,12 @@ function updateCountdown(timeStr) {
 
 function copySummary() {
     vibrate(20);
-    const sessionData = getSessionData(state.sessionId);
-    if (!sessionData) return;
     
-    const proposal = sessionData.partner_a_proposal;
     const summary = `🎉 Vibe Checker - Sovittu sessio
 
-🕐 Aika: ${proposal.timeDisplay}
-🌹 Tunnelma: ${proposal.mood}
-✨ Fokus: ${proposal.focus}
-
-🎭 Mausteet: ${[...(proposal.communication || []), ...(proposal.toys || []), ...(proposal.specialFocus || [])].join(', ')}
+🕐 Aika: ${state.selections.timeDisplay || '19:00'}
+🌹 Tunnelma: ${state.selections.mood}
+✨ Fokus: ${state.selections.focus}
 
 💝 Valmistaudu upeaan hetkeen!`;
     
@@ -356,10 +478,17 @@ function copySummary() {
     }
 }
 
-function cancelMatchedSession() {
+async function cancelMatchedSession() {
     if (!confirm('Haluatko varmasti perua sovitun session?')) return;
     vibrate(30);
-    localStorage.removeItem(`session_${state.sessionId}`);
+    
+    await supabase
+        .from('sessions')
+        .update({ status: 'cancelled' })
+        .eq('id', state.sessionId);
+    
+    if (state.realtimeChannel) state.realtimeChannel.unsubscribe();
+    
     state.sessionId = null;
     state.userRole = null;
     clearSelections();
@@ -471,16 +600,9 @@ function updatePreview() {
     const timeLabels = { now: 'Kohta', '30min': '30min päästä', '1h': 'Tunnin päästä', evening: 'Illalla' };
     const moodLabels = { sensuelli: 'Sensuelli', villi: 'Villi', leikkisa: 'Leikkisä', dominoiva: 'Dominoiva', hella: 'Hellä' };
     
-    const spiceCount = [
-        ...s.communication, ...s.outfits, ...s.nylon, ...s.senses, 
-        ...s.bdsm, ...s.toys, ...s.specialFocus, ...s.safety
-    ].length;
+    const spiceCount = [...s.communication, ...s.outfits, ...s.nylon, ...s.senses, ...s.bdsm, ...s.toys, ...s.specialFocus, ...s.safety].length;
     
-    previewContent.innerHTML = `
-        <strong>${moodLabels[s.mood] || s.mood}</strong> • 
-        ${s.time ? timeLabels[s.time] || s.timeDisplay : ''}<br>
-        ${spiceCount} maustet${spiceCount === 1 ? 'a' : 'ta'} valittu
-    `;
+    previewContent.innerHTML = `<strong>${moodLabels[s.mood] || s.mood}</strong> • ${s.time ? timeLabels[s.time] || s.timeDisplay : ''}<br>${spiceCount} maustet${spiceCount === 1 ? 'a' : 'ta'} valittu`;
     selectionPreview.style.display = 'block';
 }
 
@@ -555,33 +677,61 @@ function loadFavoritesAndCreateSession() {
     }, 300);
 }
 
-function submitSelection() {
+async function submitSelection() {
     const selections = getSelections();
     if (!selections.mood) { showNotification('❗ Valitse tunnelma!'); vibrate([10, 50, 10]); return; }
     if (!selections.focus) { showNotification('❗ Valitse fokus!'); vibrate([10, 50, 10]); return; }
     if (!selections.time) { showNotification('❗ Valitse ajankohta!'); vibrate([10, 50, 10]); return; }
     
     vibrate(30);
-    console.log('Submitting selections:', selections);
     
-    const sessionData = {
-        status: 'waiting_for_b',
-        partner_a_proposal: selections,
-        partner_b_proposal: null,
-        matched: false,
-        createdAt: new Date().toISOString()
+    const proposalData = {
+        session_id: state.sessionId,
+        user_role: state.userRole,
+        mood: selections.mood,
+        focus: selections.focus,
+        tempo: selections.tempo,
+        intensity: selections.intensity,
+        control: selections.control,
+        role: selections.role,
+        time: selections.time,
+        time_display: selections.timeDisplay,
+        communication: selections.communication,
+        outfits: selections.outfits,
+        nylon: selections.nylon,
+        senses: selections.senses,
+        bdsm: selections.bdsm,
+        toys: selections.toys,
+        special_focus: selections.specialFocus,
+        safety: selections.safety,
+        custom_wishes: selections.customWishes
     };
     
-    saveSessionData(state.sessionId, sessionData);
+    const { error } = await supabase
+        .from('proposals')
+        .insert([proposalData]);
+    
+    if (error) {
+        console.error('Error submitting:', error);
+        showNotification('❌ Virhe lähetyksessä!');
+        return;
+    }
+    
+    const newStatus = state.userRole === 'partner_a' ? 'waiting_for_b' : 'waiting_for_a';
+    
+    await supabase
+        .from('sessions')
+        .update({ status: newStatus })
+        .eq('id', state.sessionId);
     
     showScreen('results');
     showWaitingState();
-    
-    showNotification('✅ Ehdotus lähetetty! Odottaa kumppanin vastausta...');
+    showNotification('✅ Ehdotus lähetetty!');
 }
 
-function generateMockPartnerSelections() {
-    return { mood: 'villi', focus: 'molemmat', tempo: 'energinen', intensity: 'keskiverto', control: 'alistua', role: 'passiivinen', time: 'evening', timeDisplay: '20:30', communication: ['dirty-talk', 'kehut'], outfits: ['pitsialusvaatteet'], nylon: ['black-stayup'], senses: ['blindfold'], bdsm: ['spanking', 'hiusten-vetaminen'], toys: ['vibrator'], specialFocus: ['multiple-orgasms'], safety: ['safe-word', 'aftercare'], customWishes: 'Muista olla lempeä alussa' };
+function showWaitingState() {
+    waitingState.style.display = 'block';
+    matchResults.style.display = 'none';
 }
 
 function saveToHistory(sessionData) {
@@ -595,13 +745,7 @@ function loadHistory() {
     const history = JSON.parse(localStorage.getItem('vibe_history') || '[]');
     
     if (history.length === 0) {
-        historyList.innerHTML = `
-            <div class="empty-history">
-                <div class="empty-history-icon">📚</div>
-                <p>Ei vielä toteutuneita sessioita</p>
-                <p class="info-text-small">Hyväksytyt sessiot näkyvät täällä</p>
-            </div>
-        `;
+        historyList.innerHTML = '<div class="empty-history"><div class="empty-history-icon">📚</div><p>Ei vielä toteutuneita sessioita</p><p class="info-text-small">Hyväksytyt sessiot näkyvät täällä</p></div>';
         return;
     }
     
@@ -609,41 +753,12 @@ function loadHistory() {
         const date = new Date(session.timestamp);
         const dateStr = date.toLocaleDateString('fi-FI', { day: 'numeric', month: 'long', year: 'numeric' });
         const timeStr = date.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' });
-        
         const myMood = session.mySelections.mood || 'Ei valittu';
         const myFocus = session.mySelections.focus || 'Ei valittu';
         const proposedTime = session.proposedTime || 'Ei aikaa';
-        const spiceCount = [
-            ...(session.mySelections.communication || []),
-            ...(session.mySelections.outfits || []),
-            ...(session.mySelections.nylon || []),
-            ...(session.mySelections.senses || []),
-            ...(session.mySelections.bdsm || []),
-            ...(session.mySelections.toys || []),
-            ...(session.mySelections.specialFocus || [])
-        ].length;
+        const spiceCount = [...(session.mySelections.communication || []), ...(session.mySelections.outfits || []), ...(session.mySelections.nylon || []), ...(session.mySelections.senses || []), ...(session.mySelections.bdsm || []), ...(session.mySelections.toys || []), ...(session.mySelections.specialFocus || [])].length;
         
-        return `
-            <div class="history-card">
-                <div onclick="viewHistorySession(${index})" style="cursor: pointer;">
-                    <div class="history-header">
-                        <span class="history-date">${dateStr} ${timeStr}</span>
-                        <span class="history-badge">✓ Toteutunut</span>
-                    </div>
-                    <div class="history-summary">
-                        <strong>${myMood}</strong> • ${myFocus} • 🕐 ${proposedTime}<br>
-                        <span style="color: var(--text-muted); font-size: 0.85rem;">
-                            ${spiceCount} maustet${spiceCount === 1 ? 'a' : 'ta'}
-                        </span>
-                    </div>
-                </div>
-                <div class="history-card-actions">
-                    <button class="btn btn-outline btn-tiny" onclick="deleteHistorySession(${index})">
-                        🗑️ Poista
-                    </button>
-                </div>
-            </div>
-        `;
+        return `<div class="history-card"><div onclick="viewHistorySession(${index})" style="cursor: pointer;"><div class="history-header"><span class="history-date">${dateStr} ${timeStr}</span><span class="history-badge">✓ Toteutunut</span></div><div class="history-summary"><strong>${myMood}</strong> • ${myFocus} • 🕐 ${proposedTime}<br><span style="color: var(--text-muted); font-size: 0.85rem;">${spiceCount} maustet${spiceCount === 1 ? 'a' : 'ta'}</span></div></div><div class="history-card-actions"><button class="btn btn-outline btn-tiny" onclick="deleteHistorySession(${index})">🗑️ Poista</button></div></div>`;
     }).join('');
 }
 
@@ -662,69 +777,48 @@ function viewHistorySession(index) {
     const history = JSON.parse(localStorage.getItem('vibe_history') || '[]');
     const session = history[index];
     if (!session) return;
-    
     showScreen('results');
-    showMatchResults({
-        partner_a: session.mySelections,
-        partner_b: session.partnerSelections
-    });
+    displayPartnerResults('a', session.mySelections);
+    displayPartnerResults('b', session.partnerSelections || session.mySelections);
 }
 
 window.viewHistorySession = viewHistorySession;
 window.deleteHistorySession = deleteHistorySession;
 
-function showWaitingState() {
-    waitingState.style.display = 'block';
-    matchResults.style.display = 'none';
-}
-
-function showMatchResults(results) {
-    waitingState.style.display = 'none';
-    matchResults.style.display = 'block';
-    const mySelections = state.userRole === 'partner_a' ? results.partner_a : results.partner_b;
-    const partnerSelections = state.userRole === 'partner_a' ? results.partner_b : results.partner_a;
-    displayPartnerResults('a', mySelections);
-    displayPartnerResults('b', partnerSelections);
-}
-
 function displayPartnerResults(partner, selections) {
     const labels = {
         mood: { sensuelli: '🌹 Sensuelli', villi: '🔥 Villi', leikkisa: '😈 Leikkisä', dominoiva: '👑 Dominoiva', hella: '💕 Hellä' },
-        focus: { 'minun-nautinto': '✨ Minun nautintoni', 'kumppanin-nautinto': '💝 Kumppanin nautinto', 'matka-tarkein': '🎭 Matka > Määränpää', molemmat: '🔥 Molemmat yhtä aikaa' },
-        tempo: { rento: '🐢 Rento', energinen: '⚡ Energinen', spontaani: '🎲 Spontaani' },
-        intensity: { lempea: '🌸 Lempeä', keskiverto: '🔶 Keskiverto', intensiivinen: '⚡ Intensiivinen' },
-        control: { dominoida: '👑 Haluan dominoida', alistua: '🙇 Haluan alistua', 'tasa-arvo': '⚖️ Tasa-arvo' },
-        role: { aktiivinen: '🔥 Aktiivinen', passiivinen: '🌙 Passiivinen', vaihteleva: '🔄 Vaihteleva' }
+        focus: { 'minun-nautinto': '✨ Minun nautintoni', 'kumppanin-nautinto': '💝 Kumppanin nautinto', 'matka-tarkein': '🎭 Matka > Määränpää', molemmat: '🔥 Molemmat yhtä aikaa' }
     };
     const allLabels = { 'dirty-talk': 'Dirty talk', kuiskailu: 'Kuiskailu', hiljaisuus: 'Hiljaisuus', 'ohjeiden-anto': 'Ohjeiden anto', kehut: 'Kehut', 'valitsen-kumppanille': 'Valitsen kumppanille', 'kumppani-valitsee': 'Kumppani valitsee', pitsialusvaatteet: 'Pitsialusvaatteet', 'body-korset': 'Body/korset', aamutakki: 'Aamutakki', alaston: 'Alaston', 'nude-stayup': 'Nude stay-up', 'black-stayup': 'Musta stay-up', 'white-stayup': 'Valkoinen stay-up', 'red-stayup': 'Punainen stay-up', 'open-tights': 'Avoimet sukkahousut', blindfold: 'Silmien sidonta', headphones: 'Kuulokkeet', photography: 'Valokuvaus', bondage: 'Sidonta', handcuffs: 'Kahleet', ice: 'Jää', 'hot-wax': 'Kuuma vaha', piiskaus: 'Piiskaus', paddle: 'Paddle', raippa: 'Raippa', spanking: 'Spanking', kuristaminen: 'Kuristaminen', pureminen: 'Pureminen', 'kynsien-kaytto': 'Kynnet', nannipuristus: 'Nännipuristus', 'hiusten-vetaminen': 'Hiusten vetäminen', vibrator: 'Vibraattori', dildo: 'Dildo', 'strap-on': 'Strap-on', 'nipple-clamps': 'Nännipiistimet', 'anal-plug': 'Anaalitappi', 'massage-oil': 'Hierontaöljy', sormipeli: 'Sormipeli', feather: 'Feather tickler', 'partner-orgasm': 'Toisen orgasmi edellä', 'pleasure-only': 'Vain nautintoa toiselle', 'multiple-orgasms': 'Useat orgasmit', edging: 'Edging', 'no-penetration': 'Yhdyntä kielletty', 'foreplay-focus': 'Foreplay-fokus', quickie: 'Quickie', tantric: 'Tantric', aftercare: 'Aftercare', 'safe-word': 'Safe word', checkpoints: 'Checkpoints' };
     
     const moodEl = document.getElementById(`result-mood-${partner}`);
     const spicesEl = document.getElementById(`result-spices-${partner}`);
+    
     let displayParts = [];
     if (selections.mood) displayParts.push(labels.mood[selections.mood] || selections.mood);
     if (selections.focus) displayParts.push(labels.focus[selections.focus] || selections.focus);
-    if (selections.timeDisplay) displayParts.push(`🕐 ${selections.timeDisplay}`);
-    if (selections.tempo) displayParts.push(labels.tempo[selections.tempo]);
-    if (selections.intensity) displayParts.push(labels.intensity[selections.intensity]);
-    if (selections.control) displayParts.push(labels.control[selections.control]);
-    if (selections.role) displayParts.push(labels.role[selections.role]);
-    moodEl.textContent = displayParts.join(' • ');
+    if (selections.timeDisplay || selections.time_display) displayParts.push(`🕐 ${selections.timeDisplay || selections.time_display}`);
     
-    const allSpices = [...(selections.communication || []), ...(selections.outfits || []), ...(selections.nylon || []), ...(selections.senses || []), ...(selections.bdsm || []), ...(selections.toys || []), ...(selections.specialFocus || []), ...(selections.safety || [])];
-    spicesEl.innerHTML = '';
-    allSpices.forEach(spice => {
-        const tag = document.createElement('span');
-        tag.className = 'spice-tag';
-        tag.textContent = allLabels[spice] || spice;
-        spicesEl.appendChild(tag);
-    });
-    if (selections.customWishes) {
-        const customTag = document.createElement('span');
-        customTag.className = 'spice-tag';
-        customTag.textContent = `💭 ${selections.customWishes}`;
-        customTag.style.gridColumn = '1 / -1';
-        customTag.style.textAlign = 'left';
-        spicesEl.appendChild(customTag);
+    if (moodEl) moodEl.textContent = displayParts.join(' • ');
+    
+    const allSpices = [...(selections.communication || []), ...(selections.outfits || []), ...(selections.nylon || []), ...(selections.senses || []), ...(selections.bdsm || []), ...(selections.toys || []), ...(selections.specialFocus || selections.special_focus || []), ...(selections.safety || [])];
+    if (spicesEl) {
+        spicesEl.innerHTML = '';
+        allSpices.forEach(spice => {
+            const tag = document.createElement('span');
+            tag.className = 'spice-tag';
+            tag.textContent = allLabels[spice] || spice;
+            spicesEl.appendChild(tag);
+        });
+        if (selections.customWishes || selections.custom_wishes) {
+            const customTag = document.createElement('span');
+            customTag.className = 'spice-tag';
+            customTag.textContent = `💭 ${selections.customWishes || selections.custom_wishes}`;
+            customTag.style.gridColumn = '1 / -1';
+            customTag.style.textAlign = 'left';
+            spicesEl.appendChild(customTag);
+        }
     }
 }
 
@@ -811,13 +905,12 @@ if (viewMatchDetailsBtn) viewMatchDetailsBtn.addEventListener('click', () => { m
 if (copySummaryBtn) copySummaryBtn.addEventListener('click', copySummary);
 if (cancelMatchedSessionBtn) cancelMatchedSessionBtn.addEventListener('click', cancelMatchedSession);
 counterProposalBtn.addEventListener('click', () => { vibrate(10); showScreen('selection'); showNotification('Muokkaa valintojasi ja lähetä uudelleen!'); });
-newSessionBtn.addEventListener('click', () => { vibrate(20); state.sessionId = null; state.userRole = null; clearSelections(); window.history.pushState({}, '', window.location.pathname); showScreen('welcome'); });
+newSessionBtn.addEventListener('click', () => { vibrate(20); if (state.realtimeChannel) state.realtimeChannel.unsubscribe(); state.sessionId = null; state.userRole = null; clearSelections(); window.history.pushState({}, '', window.location.pathname); showScreen('welcome'); });
 
 function init() {
-    console.log('🎭 Vibe Checker v5 initialized');
+    console.log('🎭 Vibe Checker - Production with Supabase');
     initTheme();
     checkUrlForSession();
-    if (!state.sessionId) showScreen('welcome');
 }
 
 if (document.readyState === 'loading') {
