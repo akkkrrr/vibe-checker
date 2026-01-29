@@ -416,24 +416,61 @@ body::before {
 }
 
 /* === TIME SELECTION === */
+.time-section {
+    background: rgba(212, 175, 55, 0.05);
+    border: 1px solid rgba(212, 175, 55, 0.2);
+    padding: var(--spacing-md);
+    border-radius: 16px;
+}
+
+.time-quick-select {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
+}
+
 .time-btn {
     background: var(--glass-bg);
     border: 2px solid var(--glass-border);
     border-radius: 12px;
-    padding: var(--spacing-sm);
+    padding: var(--spacing-md);
     cursor: pointer;
     transition: all 0.2s ease;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.25rem;
+    gap: var(--spacing-xs);
     color: var(--text-primary);
     font-family: var(--font-body);
+    backdrop-filter: blur(10px);
+    position: relative;
+    overflow: hidden;
+    min-height: 80px;
+}
+
+.time-btn::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(212, 175, 55, 0.2);
+    transform: translate(-50%, -50%);
+    transition: width 0.3s, height 0.3s;
+}
+
+.time-btn:active::before {
+    width: 200px;
+    height: 200px;
 }
 
 .time-btn:hover {
-    border-color: var(--rose-gold);
-    transform: translateY(-2px);
+    border-color: rgba(212, 175, 55, 0.5);
+    transform: translateY(-3px);
+    box-shadow: var(--glow-rose);
 }
 
 .time-btn:active {
@@ -444,6 +481,21 @@ body::before {
     border-color: var(--rose-gold);
     background: rgba(212, 175, 55, 0.15);
     box-shadow: var(--glow-rose);
+}
+
+.time-icon {
+    font-size: 2rem;
+    transition: transform 0.2s ease;
+}
+
+.time-btn:active .time-icon {
+    transform: scale(1.2);
+}
+
+.time-label {
+    font-size: 0.95rem;
+    font-weight: 500;
+    text-align: center;
 }
 
 /* === SUBMIT SECTION === */
@@ -654,6 +706,10 @@ body::before {
     
     .spice-grid {
         grid-template-columns: repeat(3, 1fr);
+    }
+    
+    .time-quick-select {
+        grid-template-columns: repeat(4, 1fr);
     }
     
     .action-buttons {
