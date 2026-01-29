@@ -1,17 +1,15 @@
-// Muuttuja tietokantayhteydelle
-var supabaseClient;
+// Käytetään var-sanaa, jotta ei tule "already declared" -virhettä
+var supabase;
 
 function initSupabase() {
-    if (typeof window.supabase === 'undefined') {
-        console.error('Supabase library not loaded!');
-        showNotification('❌ Virhe: Supabase ei latautunut');
-        return false;
-    }
-    
     const SUPABASE_URL = 'https://lromnuelyivvivqhzoch.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxyb21udWVseWl2dml2cWh6b2NoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk2MzE1ODgsImV4cCI6MjA4NTIwNzU4OH0.qddbQGEMVzp9zlX33jmx7ysLweE9P1LF8EAHB3R6K5E';
     
-    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    if (typeof window.supabase === 'undefined') {
+        console.error('Supabase library not loaded!');
+        return false;
+    }
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     return true;
 }
 
@@ -25,117 +23,132 @@ const state = {
         mood: null,
         focus: null,
         time: null,
-        timeDisplay: '19:00'
+        timeDisplay: '19:00',
+        communication: [],
+        outfits: [],
+        nylon: [],
+        senses: [],
+        bdsm: [],
+        toys: [],
+        specialFocus: [],
+        safety: [],
+        customWishes: ''
     }
 };
 
-// --- APUFUNKTIOT ---
-
-function showNotification(message) {
-    const container = document.getElementById('notification-container');
-    const note = document.createElement('div');
-    note.className = 'notification';
-    note.textContent = message;
-    container.appendChild(note);
-    setTimeout(() => note.remove(), 3000);
-}
-
-function vibrate(duration = 10) {
-    if ('vibrate' in navigator) navigator.vibrate(duration);
-}
-
-function showScreen(screenName) {
+// --- NÄKYMIEN HALLINTA ---
+function showScreen(screenId) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    const target = document.getElementById(`${screenName}-screen`);
+    const target = document.getElementById(screenId + '-screen');
     if (target) target.classList.add('active');
-    
-    if (screenName === 'history') loadHistory();
 }
 
-// --- SUPABASE TOIMINNOT ---
+function showNotification(msg) {
+    // Luodaan ilmoitus jos sitä ei ole
+    alert(msg); // Yksinkertaisuuden vuoksi aluksi näin, voit vaihtaa tyylikkäämpään myöhemmin
+}
 
+// --- LOGIIKKA ---
 async function createSession() {
-    vibrate(20);
     const sessionId = Math.random().toString(36).substring(2, 8).toUpperCase();
     
-    const { error } = await supabaseClient
+    const { error } = await supabase
         .from('sessions')
         .insert([{ id: sessionId, status: 'waiting_for_first' }]);
-    
+
     if (error) {
-        showNotification('❌ Virhe tietokannassa!');
+        console.error('Error:', error);
+        showNotification('Tietokantavirhe: Varmista että sessions-taulun id on tyyppiä TEXT');
         return;
     }
-    
+
     state.sessionId = sessionId;
     state.userRole = 'partner_a';
-    document.getElementById('session-id-display').textContent = `ID: ${sessionId}`;
-    setupRealtimeListener();
+    document.getElementById('session-id-display').textContent = sessionId;
     showScreen('selection');
-    showNotification(`✨ Sessio luotu!`);
-}
-
-function setupRealtimeListener() {
-    if (state.realtimeChannel) state.realtimeChannel.unsubscribe();
     
-    state.realtimeChannel = supabaseClient
-        .channel(`session:${state.sessionId}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'sessions', filter: `id=eq.${state.sessionId}` }, 
-        payload => handleSessionUpdate(payload))
-        .subscribe();
+    // Kopioidaan linkki automaattisesti
+    const url = window.location.origin + window.location.pathname + '?session=' + sessionId;
+    navigator.clipboard.writeText(url);
+    showNotification('Sessio luotu! Linkki kopioitu kaverille lähetettäväksi.');
 }
 
-function handleSessionUpdate(payload) {
-    if (payload.new.status === 'matched') {
-        vibrate(50);
-        showNotification('💌 Match!');
-        document.getElementById('match-modal').classList.add('active');
+async function submitSelection() {
+    if (!state.selections.mood || !state.selections.focus) {
+        showNotification('Valitse vähintään tunnelma ja fokus!');
+        return;
+    }
+
+    const proposalData = {
+        session_id: state.sessionId,
+        user_role: state.userRole,
+        mood: state.selections.mood,
+        focus: state.selections.focus,
+        time_display: state.selections.timeDisplay
+        // Voit lisätä muut sarakkeet tänne kun taulusi on valmis
+    };
+
+    const { error } = await supabase.from('proposals').insert([proposalData]);
+
+    if (error) {
+        console.error(error);
+        showNotification('Virhe lähetyksessä.');
+    } else {
+        showScreen('results');
+        showNotification('Ehdotus lähetetty! Odotetaan kumppania...');
     }
 }
 
-// --- ALUSTUS JA EVENT LISTENERS ---
+// --- KYTKENNÄT (Tämä puuttui!) ---
+function setupEventListeners() {
+    // Aloitusnapit
+    const createBtn = document.getElementById('create-session-btn');
+    if (createBtn) createBtn.addEventListener('click', createSession);
 
-function init() {
-    if (!initSupabase()) return;
-
-    // Nappien kytkentä
-    document.getElementById('create-session-btn').addEventListener('click', createSession);
-    document.getElementById('join-session-btn').addEventListener('click', () => {
-        const id = prompt('Syötä Session ID:');
+    const joinBtn = document.getElementById('join-session-btn');
+    if (joinBtn) joinBtn.addEventListener('click', () => {
+        const id = prompt('Syötä session ID:');
         if (id) {
             state.sessionId = id.toUpperCase();
             state.userRole = 'partner_b';
-            setupRealtimeListener();
             showScreen('selection');
         }
     });
 
-    document.querySelectorAll('.mood-card[data-mood]').forEach(card => {
+    // Korttien valinta (Moodit)
+    document.querySelectorAll('[data-mood]').forEach(card => {
         card.addEventListener('click', () => {
-            document.querySelectorAll('.mood-card[data-mood]').forEach(c => c.classList.remove('selected'));
+            document.querySelectorAll('[data-mood]').forEach(c => c.classList.remove('selected'));
             card.classList.add('selected');
             state.selections.mood = card.dataset.mood;
-            vibrate(5);
         });
     });
 
-    document.getElementById('submit-selection-btn').addEventListener('click', async () => {
-        if (!state.selections.mood) return showNotification('Valitse tunnelma!');
-        showNotification('🚀 Lähetetään...');
-        showScreen('results');
+    // Korttien valinta (Fokus)
+    document.querySelectorAll('[data-focus]').forEach(card => {
+        card.addEventListener('click', () => {
+            document.querySelectorAll('[data-focus]').forEach(c => c.classList.remove('selected'));
+            card.classList.add('selected');
+            state.selections.focus = card.dataset.focus;
+        });
     });
 
-    document.getElementById('theme-toggle').addEventListener('click', () => {
+    // Lähetysnappi
+    const submitBtn = document.getElementById('submit-selection-btn');
+    if (submitBtn) submitBtn.addEventListener('click', submitSelection);
+
+    // Teeman vaihto
+    const themeBtn = document.getElementById('theme-toggle');
+    if (themeBtn) themeBtn.addEventListener('click', () => {
         state.theme = state.theme === 'dark' ? 'light' : 'dark';
         document.body.setAttribute('data-theme', state.theme);
-        localStorage.setItem('theme', state.theme);
-    });
-
-    // Navigointi
-    document.querySelectorAll('.nav-btn').forEach(btn => {
-        btn.addEventListener('click', () => showScreen(btn.dataset.nav));
     });
 }
 
-// Käynnistys
-document.addEventListener('DOMContentLoaded', init);
+// KÄYNNISTYS
+document.addEventListener('DOMContentLoaded', () => {
+    if (initSupabase()) {
+        setupEventListeners();
+        console.log('Vibe Checker valmis!');
+    }
+});
