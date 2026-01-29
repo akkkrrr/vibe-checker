@@ -268,18 +268,62 @@ async function submitSelection() {
     const details = {};
     let mood = "ei valittu";
     let focus = "ei valittu";
+    let tempo = null;
+    let intensity = null;
+    let control = null;
+    let role = null;
+    let time = null;
+    let timeDisplay = null;
 
+    // Kerää kortit (mood, focus, tempo, intensity, control, role)
     document.querySelectorAll('.selected').forEach(el => {
         if (el.dataset.mood) mood = el.dataset.mood;
         if (el.dataset.focus) focus = el.dataset.focus;
-        Object.assign(details, el.dataset);
+        if (el.dataset.tempo) tempo = el.dataset.tempo;
+        if (el.dataset.intensity) intensity = el.dataset.intensity;
+        if (el.dataset.control) control = el.dataset.control;
+        if (el.dataset.role) role = el.dataset.role;
+        if (el.dataset.time) {
+            time = el.dataset.time;
+            timeDisplay = el.textContent.trim();
+        }
     });
 
+    // Kerää checkboxit kategorioittain
     document.querySelectorAll('input[type="checkbox"]:checked').forEach(c => {
         const cat = c.name || 'extras';
         if (!details[cat]) details[cat] = [];
         details[cat].push(c.value);
     });
+    
+    // Lisää kaikki yksittäiset valinnat details-objektiin
+    if (mood !== "ei valittu") details.mood = mood;
+    if (focus !== "ei valittu") details.focus = focus;
+    if (tempo) details.tempo = tempo;
+    if (intensity) details.intensity = intensity;
+    if (control) details.control = control;
+    if (role) details.role = role;
+    if (time) details.time = time;
+    if (timeDisplay) details.timeDisplay = timeDisplay;
+    
+    // Tarkista pakolliset kentät
+    if (mood === "ei valittu") {
+        notify("❗ Valitse tunnelma!");
+        if (navigator.vibrate) navigator.vibrate([10, 50, 10]);
+        return;
+    }
+    if (focus === "ei valittu") {
+        notify("❗ Valitse fokus!");
+        if (navigator.vibrate) navigator.vibrate([10, 50, 10]);
+        return;
+    }
+    if (!time) {
+        notify("❗ Valitse ajankohta!");
+        if (navigator.vibrate) navigator.vibrate([10, 50, 10]);
+        return;
+    }
+    
+    if (navigator.vibrate) navigator.vibrate(30);
     
     // Tarkista max rounds
     if (state.currentRound > MAX_ROUNDS) {
@@ -315,6 +359,12 @@ async function submitSelection() {
             status: status,
             mood: mood,
             focus: focus,
+            tempo: tempo,
+            intensity: intensity,
+            control: control,
+            role: role,
+            time: time,
+            timeDisplay: timeDisplay,
             details: details,
             changes: changes,
             respondedTo: respondedTo,
@@ -482,6 +532,33 @@ document.addEventListener('DOMContentLoaded', () => {
         if (id) joinSession(id.toUpperCase());
     };
 
+    // Korttien klikkaus
+    document.addEventListener('click', (e) => {
+        const card = e.target.closest('.mood-card, .time-btn');
+        if (card) {
+            const parent = card.parentElement;
+            parent.querySelectorAll('.mood-card, .time-btn').forEach(c => c.classList.remove('selected'));
+            card.classList.add('selected');
+            if (navigator.vibrate) navigator.vibrate(10);
+        }
+    });
+
+    // Theme toggle (toimii heti)
+    const themeBtn = document.getElementById('theme-toggle');
+    if (themeBtn) {
+        // Aseta nykyinen teema heti
+        document.body.setAttribute('data-theme', state.theme);
+        themeBtn.textContent = state.theme === 'dark' ? '🌙' : '☀️';
+        
+        themeBtn.onclick = () => {
+            state.theme = state.theme === 'dark' ? 'light' : 'dark';
+            document.body.setAttribute('data-theme', state.theme);
+            themeBtn.textContent = state.theme === 'dark' ? '🌙' : '☀️';
+            localStorage.setItem('theme', state.theme);
+            if (navigator.vibrate) navigator.vibrate(10);
+        };
+    }
+    
     // Navigointi (Etusivu / Historia)
     document.querySelectorAll('.nav-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -555,6 +632,36 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         };
     }
+    
+    const acceptProposalBtn = document.getElementById('accept-proposal-btn');
+    if (acceptProposalBtn) {
+        acceptProposalBtn.onclick = async () => {
+            if (navigator.vibrate) navigator.vibrate(50);
+            
+            try {
+                await db.collection('sessions')
+                    .doc(state.sessionId)
+                    .update({ 
+                        status: 'matched', 
+                        matchedAt: firebase.firestore.FieldValue.serverTimestamp() 
+                    });
+                
+                notify('✅ Hyväksytty!');
+            } catch (e) {
+                console.error('Error accepting:', e);
+                notify('❌ Virhe hyväksynnässä!');
+            }
+        };
+    }
+    
+    const counterProposalBtn2 = document.getElementById('counter-proposal-btn2');
+    if (counterProposalBtn2) {
+        counterProposalBtn2.onclick = () => {
+            if (navigator.vibrate) navigator.vibrate(10);
+            showScreen('selection');
+            notify('Tee omat valintasi!');
+        };
+    }
 
     // Help modal
     const helpBtn = document.getElementById('help-btn');
@@ -578,33 +685,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.target === helpModal) {
                 helpModal.classList.remove('active');
             }
-        };
-    }
-
-    // Korttien klikkaus
-    document.addEventListener('click', (e) => {
-        const card = e.target.closest('.mood-card, .time-btn');
-        if (card) {
-            const parent = card.parentElement;
-            parent.querySelectorAll('.mood-card, .time-btn').forEach(c => c.classList.remove('selected'));
-            card.classList.add('selected');
-            if (navigator.vibrate) navigator.vibrate(10);
-        }
-    });
-
-    // Theme toggle (toimii heti)
-    const themeBtn = document.getElementById('theme-toggle');
-    if (themeBtn) {
-        // Aseta nykyinen teema heti
-        document.body.setAttribute('data-theme', state.theme);
-        themeBtn.textContent = state.theme === 'dark' ? '🌙' : '☀️';
-        
-        themeBtn.onclick = () => {
-            state.theme = state.theme === 'dark' ? 'light' : 'dark';
-            document.body.setAttribute('data-theme', state.theme);
-            themeBtn.textContent = state.theme === 'dark' ? '🌙' : '☀️';
-            localStorage.setItem('theme', state.theme);
-            if (navigator.vibrate) navigator.vibrate(10);
         };
     }
     
