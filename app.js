@@ -1,7 +1,18 @@
-const SUPABASE_URL = 'https://lromnuelyivvivqhzoch.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxyb21udWVseWl2dml2cWh6b2NoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk2MzE1ODgsImV4cCI6MjA4NTIwNzU4OH0.qddbQGEMVzp9zlX33jmx7ysLweE9P1LF8EAHB3R6K5E';
+let supabase;
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+function initSupabase() {
+    if (typeof window.supabase === 'undefined') {
+        console.error('Supabase library not loaded!');
+        showNotification('❌ Virhe: Supabase ei latautunut');
+        return false;
+    }
+    
+    const SUPABASE_URL = 'https://lromnuelyivvivqhzoch.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxyb21udWVseWl2dml2cWh6b2NoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk2MzE1ODgsImV4cCI6MjA4NTIwNzU4OH0.qddbQGEMVzp9zlX33jmx7ysLweE9P1LF8EAHB3R6K5E';
+    
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    return true;
+}
 
 const state = {
     currentScreen: 'welcome',
@@ -909,6 +920,12 @@ newSessionBtn.addEventListener('click', () => { vibrate(20); if (state.realtimeC
 
 function init() {
     console.log('🎭 Vibe Checker - Production with Supabase');
+    
+    if (!initSupabase()) {
+        console.error('Failed to initialize Supabase');
+        return;
+    }
+    
     initTheme();
     checkUrlForSession();
 }
