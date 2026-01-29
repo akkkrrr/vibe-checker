@@ -1,4 +1,8 @@
-// Käytetään var-sanaa, jotta ei tule "already declared" -virhettä
+/**
+ * VIBE CHECKER - UNIVERSAL ENGINE v6
+ * Tämä koodi toimii suoraan Clauden HTML-rakenteen kanssa.
+ */
+
 var supabase;
 
 function initSupabase() {
@@ -14,134 +18,144 @@ function initSupabase() {
 }
 
 const state = {
-    currentScreen: 'welcome',
     sessionId: null,
     userRole: null,
     theme: localStorage.getItem('theme') || 'dark',
-    realtimeChannel: null,
-    selections: {
-        mood: null,
-        focus: null,
-        time: null,
-        timeDisplay: '19:00',
-        communication: [],
-        outfits: [],
-        nylon: [],
-        senses: [],
-        bdsm: [],
-        toys: [],
-        specialFocus: [],
-        safety: [],
-        customWishes: ''
-    }
+    selections: {} // Tänne kerätään kaikki dynaamisesti
 };
 
-// --- NÄKYMIEN HALLINTA ---
+// --- APUFUNKTIOT ---
 function showScreen(screenId) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     const target = document.getElementById(screenId + '-screen');
     if (target) target.classList.add('active');
+    window.scrollTo(0,0);
 }
 
 function showNotification(msg) {
-    // Luodaan ilmoitus jos sitä ei ole
-    alert(msg); // Yksinkertaisuuden vuoksi aluksi näin, voit vaihtaa tyylikkäämpään myöhemmin
+    const note = document.createElement('div');
+    note.style.cssText = "position:fixed; bottom:30px; left:50%; transform:translateX(-50%); background:#d4af37; color:black; padding:15px 25px; border-radius:30px; z-index:9999; font-weight:600; box-shadow:0 10px 30px rgba(0,0,0,0.5); font-family:sans-serif;";
+    note.textContent = msg;
+    document.body.appendChild(note);
+    setTimeout(() => {
+        note.style.opacity = '0';
+        note.style.transition = '0.5s';
+        setTimeout(() => note.remove(), 500);
+    }, 3500);
 }
 
-// --- LOGIIKKA ---
+// --- SESSION HALLINTA ---
 async function createSession() {
-    const sessionId = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const id = Math.random().toString(36).substring(2, 8).toUpperCase();
     
     const { error } = await supabase
         .from('sessions')
-        .insert([{ id: sessionId, status: 'waiting_for_first' }]);
+        .insert([{ id: id, status: 'waiting' }]);
 
     if (error) {
-        console.error('Error:', error);
-        showNotification('Tietokantavirhe: Varmista että sessions-taulun id on tyyppiä TEXT');
+        showNotification("❌ Yhteysvirhe tietokantaan!");
+        console.error(error);
         return;
     }
 
-    state.sessionId = sessionId;
+    state.sessionId = id;
     state.userRole = 'partner_a';
-    document.getElementById('session-id-display').textContent = sessionId;
-    showScreen('selection');
+    document.getElementById('session-id-display').textContent = id;
     
-    // Kopioidaan linkki automaattisesti
-    const url = window.location.origin + window.location.pathname + '?session=' + sessionId;
+    const url = window.location.origin + window.location.pathname + '?session=' + id;
     navigator.clipboard.writeText(url);
-    showNotification('Sessio luotu! Linkki kopioitu kaverille lähetettäväksi.');
+    
+    showNotification("🔥 Sex Session ID: " + id + " - Linkki kopioitu!");
+    showScreen('selection');
 }
 
+// --- LÄHETYS ---
 async function submitSelection() {
-    if (!state.selections.mood || !state.selections.focus) {
-        showNotification('Valitse vähintään tunnelma ja fokus!');
+    const finalSelections = {};
+    
+    // 1. Kerätään kortit (Mood, Focus, Tempo, Intensity, Control, Role, Time)
+    // Etsitään kaikki elementit joissa on 'selected' luokka
+    document.querySelectorAll('.selected').forEach(el => {
+        Object.keys(el.dataset).forEach(key => {
+            finalSelections[key] = el.dataset[key];
+        });
+    });
+
+    // 2. Kerätään checkboxit (Communication, Outfits, Spice/Mausteet jne.)
+    const checkedBoxes = document.querySelectorAll('input[type="checkbox"]:checked');
+    checkedBoxes.forEach(cb => {
+        const category = cb.name || 'other';
+        if (!finalSelections[category]) finalSelections[category] = [];
+        finalSelections[category].push(cb.value);
+    });
+
+    // 3. Tekstikenttä
+    const wishes = document.querySelector('textarea');
+    if (wishes) finalSelections.custom_wishes = wishes.value;
+
+    // Tarkistetaan pakolliset (Mood ja Focus on hyvä olla)
+    if (!finalSelections.mood || !finalSelections.focus) {
+        showNotification("❗ Valitse vähintään Tunnelma ja Fokus!");
         return;
     }
 
-    const proposalData = {
+    const { error } = await supabase.from('proposals').insert([{
         session_id: state.sessionId,
         user_role: state.userRole,
-        mood: state.selections.mood,
-        focus: state.selections.focus,
-        time_display: state.selections.timeDisplay
-        // Voit lisätä muut sarakkeet tänne kun taulusi on valmis
-    };
-
-    const { error } = await supabase.from('proposals').insert([proposalData]);
+        mood: finalSelections.mood,
+        focus: finalSelections.focus,
+        time: finalSelections.time || 'now',
+        details: finalSelections // Tänne menee KAIKKI (asusteet yms.)
+    }]);
 
     if (error) {
+        showNotification("❌ Lähetys epäonnistui!");
         console.error(error);
-        showNotification('Virhe lähetyksessä.');
     } else {
         showScreen('results');
-        showNotification('Ehdotus lähetetty! Odotetaan kumppania...');
+        showNotification("✅ Ehdotus lähetetty!");
     }
 }
 
-// --- KYTKENNÄT (Tämä puuttui!) ---
+// --- INTERAKTIOT (Kortit ja Napit) ---
 function setupEventListeners() {
-    // Aloitusnapit
-    const createBtn = document.getElementById('create-session-btn');
-    if (createBtn) createBtn.addEventListener('click', createSession);
-
-    const joinBtn = document.getElementById('join-session-btn');
-    if (joinBtn) joinBtn.addEventListener('click', () => {
-        const id = prompt('Syötä session ID:');
+    // Alun napit
+    document.getElementById('create-session-btn').onclick = createSession;
+    
+    document.getElementById('join-session-btn').onclick = () => {
+        const id = prompt("Syötä Session ID:");
         if (id) {
             state.sessionId = id.toUpperCase();
             state.userRole = 'partner_b';
+            document.getElementById('session-id-display').textContent = state.sessionId;
             showScreen('selection');
         }
-    });
-
-    // Korttien valinta (Moodit)
-    document.querySelectorAll('[data-mood]').forEach(card => {
-        card.addEventListener('click', () => {
-            document.querySelectorAll('[data-mood]').forEach(c => c.classList.remove('selected'));
-            card.classList.add('selected');
-            state.selections.mood = card.dataset.mood;
-        });
-    });
-
-    // Korttien valinta (Fokus)
-    document.querySelectorAll('[data-focus]').forEach(card => {
-        card.addEventListener('click', () => {
-            document.querySelectorAll('[data-focus]').forEach(c => c.classList.remove('selected'));
-            card.classList.add('selected');
-            state.selections.focus = card.dataset.focus;
-        });
-    });
+    };
 
     // Lähetysnappi
     const submitBtn = document.getElementById('submit-selection-btn');
-    if (submitBtn) submitBtn.addEventListener('click', submitSelection);
+    if (submitBtn) submitBtn.onclick = submitSelection;
 
     // Teeman vaihto
     const themeBtn = document.getElementById('theme-toggle');
-    if (themeBtn) themeBtn.addEventListener('click', () => {
+    if (themeBtn) themeBtn.onclick = () => {
         state.theme = state.theme === 'dark' ? 'light' : 'dark';
         document.body.setAttribute('data-theme', state.theme);
+        themeBtn.textContent = state.theme === 'dark' ? '🌙' : '☀️';
+    };
+
+    // DYNAAMINEN KORTTI-KLIKKAUS
+    // Tämä hoitaa kaikki: tunnelmat, fokukset, ajat ja muut ryhmät
+    document.addEventListener('click', (e) => {
+        const card = e.target.closest('.mood-card, .time-btn');
+        if (card) {
+            // Etsitään ryhmä (esim. kaikki saman kategorian kortit)
+            const parent = card.parentElement;
+            parent.querySelectorAll('.mood-card, .time-btn').forEach(c => c.classList.remove('selected'));
+            card.classList.add('selected');
+            
+            if (navigator.vibrate) navigator.vibrate(10);
+        }
     });
 }
 
@@ -149,6 +163,6 @@ function setupEventListeners() {
 document.addEventListener('DOMContentLoaded', () => {
     if (initSupabase()) {
         setupEventListeners();
-        console.log('Vibe Checker valmis!');
+        console.log("Vibe Checker Production ready.");
     }
 });
