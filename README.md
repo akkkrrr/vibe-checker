@@ -1,39 +1,71 @@
-# 🌙 Vibe Checker v1.5 - Negotiation Edition
+🥂 Vibe Checker ✨
 
-**Vibe Checker** on intiimi ja tyylikäs kommunikaatiotyökalu, joka on suunniteltu auttamaan kumppaneita löytämään yhteinen sävel ilman painostusta. Sovellus mahdollistaa toiveiden ja rajojen tutkimisen turvallisessa, digitaalisessa ympäristössä reaaliajassa.
+Vibe Checker on intiimin kommunikaation työkalu, joka on suunniteltu poistamaan painostus ja väärinkäsitykset toiveiden ilmaisusta. Se mahdollistaa turvallisen ja leikkisän tavan neuvotella yhteisistä hetkistä reaaliajassa.
+🚀 Kehityshistoria & Päivitykset (Changelog)
+v1.0 - v1.4: Perusta
 
+    Firebase Integration: Otettu käyttöön Firestore-tietokanta reaaliaikaista datan siirtoa varten.
 
+    Session Management: Luotu "Kutsu kumppani" -järjestelmä uniikeilla ID-linkeillä.
 
-## ✨ Uudet ominaisuudet (v1.5)
+    Selection Grid: Toteutettu perusvalinnat (Tunnelma, Fokus, Mausteet).
 
-* **Negotiation Mode:** Kumppani näkee toisen ehdotuksen pohjana ja voi muokata sitä tai hyväksyä sen sellaisenaan (Quick Accept).
-* **Cyber-Luxury UI:** Täysin uusittu visuaalinen ilme, jossa hyödynnetään Glassmorphism-efektejä, kultaisia gradientteja ja tummaa teemaa.
-* **Älykäs kierrosten hallinta:** Sovellus seuraa neuvottelukierroksia (`round`) ja hakee aina tuoreimman ehdotuksen Firebasesta.
-* **Interaktiiviset kortit:** Moodit ja kellonajat on yhtenäistetty visuaalisesti; jokainen valinta hehkuu ja animoituu valittaessa.
-* **Prefill-logiikka:** Kun liityt sessioon linkin kautta, sovellus esitäyttää valinnat automaattisesti kumppanin ehdotuksen perusteella.
+v1.5: Neuvottelumoodi (Negotiation Mode)
 
-## 🚀 Tekninen toteutus
+    Partner B Logic: Lisätty mahdollisuus vastaanottaa ehdotus, muokata sitä tai hyväksyä se "Quick Accept" -toiminnolla.
 
-* **Frontend:** Vanilla JS (ES6+), HTML5, CSS3 (Custom Variables & Advanced Animations).
-* **Backend:** [Google Firebase Firestore](https://firebase.google.com/) - NoSQL-tietokanta reaaliaikaisilla kuuntelijoilla.
-* **Hosting:** [Vercel](https://vercel.com/) - Jatkuva julkaisu (CI/CD) suoraan GitHubista.
-* **Versionhallinta:** Kehitys pidetty hallittuna GitHub-historian avulla.
+    LocalStorage History: Ensimmäinen versio historiasta, joka tallentaa toteutuneet sessiot selaimeen.
 
-## 🛠️ Käyttöönotto
+    Visual Overhaul: Lasimainen (Glassmorphism) tumma teema rose-gold -korostuksilla.
 
-1.  **Repo:** `git clone https://github.com/[KÄYTTÄJÄNIMI]/vibe-checker.git`
-2.  **Konfigurointi:** Päivitä oma `firebaseConfig` tiedostoon `app.js`.
-3.  **Indeksit:** Jos käytät useita hakuehtoja, varmista että Firestoren indeksit on luotu (linkki löytyy selaimen konsolista virhetilanteessa).
+v1.6: "The Transparency Update" (Nykyinen vaihe)
 
-## 📈 Roadmap
+    Enhanced Match Visualization: Uusi loppunäkymä, joka vertailee 15 eri kategoriaa.
 
-- [ ] **v2.0 Gamification:** XP-pisteet ja saavutukset avoimesta kommunikaatiosta.
-- [ ] **Kamasutra-kirjasto:** Inspiraatiota ja uusia ideoita kokeiluihin.
-- [ ] **Sessiohistoria:** Mahdollisuus tallentaa parhaat Matchit muistoksi.
+        Kultaiset Matchit: Automaattinen korostus yhteisille valinnoille.
 
-## 📜 Lisenssi
+        Divergence Logic: Selkeä, läpinäkyvä näyttö eroaville toiveille (esim. eri asuvalinnat).
 
-Tämä projekti on avointa koodia ja tarkoitettu edistämään terveellistä, suostumukseen perustuvaa keskustelua parisuhteissa.
+    Notification System: * Selainilmoitukset (Notification API).
 
----
-*Kehitetty vauhdilla, intohimolla ja ripauksella tekoälyä.*
+        Visuaaliset "Badge"-ilmoitukset ja otsikon välkkyminen.
+
+        Värinäpalaute mobiililaitteille.
+
+    Mobile UX Optimization:
+
+        Sticky Footer: Ohjausnapit pysyvät ruudun alareunassa skrollattaessa.
+
+        Smooth Scroll: "Muokkaa"-nappi hyppää suoraan lomakkeen alkuun.
+
+    Detailed History: Tallentaa nyt koko vertailun sisällön, ei vain pääotsikoita.
+
+🛠️ Tekninen pino (Tech Stack)
+
+    Frontend: HTML5, CSS3 (Custom Variables, Flexbox, Grid), JavaScript (ES6+).
+
+    Backend: Firebase Firestore (Realtime Database).
+
+    Hosting: Vercel / Netlify.
+
+    Notification Engine: Web Audio API & Browser Notification API.
+
+📋 Suunnitellut jatkokehitykset (Roadmap)
+
+    Time Slider Enhancement: Valitun kellonajan reaaliaikainen visuaalinen näyttö.
+
+    Interactive History: Mahdollisuus avata vanhoja sessioita ja nähdä koko Match/Divergence-raportti uudelleen.
+
+    Hätänollaus (Reset): Toiminto, jolla käyttäjä voi tyhjentää kaiken paikallisen datan ja nollata jumittuneen session.
+
+    Security Hardening: Firebase-sääntöjen tiukentaminen tuotantokäyttöön.
+
+🛡️ Tietosuoja
+
+Vibe Checker on suunniteltu yksityisyyttä kunnioittaen.
+
+    Sessiot ovat anonyymejä (vain ID-pohjaisia).
+
+    Historia tallentuu ainoastaan käyttäjän omaan selaimeen (localStorage).
+
+    Data poistuu tietokannasta, kun sessio nollataan.
