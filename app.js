@@ -1,10 +1,11 @@
 /**
  * ================================================
- * VIBE CHECKER v2.5.1-COMPLETE-STABLE
+ * VIBE CHECKER v2.5.1-COMPLETE
+ * Synkronoitu index.html:n kanssa
  * ================================================
  */
 
-// 1. Määritä oma API-avain tähän!
+// 1. FIREBASE CONFIG (Käytä omaa apiKeyasi!)
 const firebaseConfig = {
     apiKey: "AIzaSyDc4Wz35pzGP-Udi1R4JtJWLtolQiRJzJo", 
     authDomain: "vibe-checker-eight.firebaseapp.com",
@@ -14,13 +15,14 @@ const firebaseConfig = {
     appId: "1:36737525164:web:0f7457a46587c67c514571"
 };
 
-// Alustus
+// Alustus heti
 if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }
 const db = firebase.firestore();
+db.settings({ merge: true }); // Auttaa yhteysongelmissa
 
-// --- STATE ---
+// --- SECTION 1: STATE ---
 let state = {
     sessionId: null,
     userRole: null,
@@ -34,7 +36,7 @@ let isSubmitting = false;
 let isCreatingSession = false;
 let unsubscribe = null;
 
-// --- APUFUNKTIOT (SAFETY HELPERS) ---
+// --- SECTION 2: SAFETY HELPERS ---
 function notify(msg, type = 'info') {
     const container = document.getElementById('notification-container');
     if (container) {
@@ -59,7 +61,7 @@ function showScreen(screenId) {
     }
 }
 
-// --- FIREBASE LOGIIKKA ---
+// --- SECTION 3: FIREBASE LOGIIKKA ---
 async function createSession() {
     if (isCreatingSession) return;
     isCreatingSession = true;
@@ -79,7 +81,7 @@ async function createSession() {
         notify('Istunto luotu!', 'success');
         startListening(state.sessionId);
     } catch (e) {
-        console.error(e);
+        console.error("❌ Session creation failed:", e);
         notify('Yhteysvirhe tietokantaan', 'error');
     } finally {
         isCreatingSession = false;
@@ -102,7 +104,7 @@ function startListening(id) {
             const data = doc.data();
             const partnerRole = state.userRole === 'partner_a' ? 'partner_b' : 'partner_a';
             state.partnerData = data[partnerRole] || null;
-            console.log("Päivitys Firebasesta", data);
+            console.log("🔥 Reaaliaikainen päivitys saatu", data);
         }
     });
 }
@@ -126,29 +128,30 @@ async function submitSelection() {
 
         notify('Valinnat lähetetty!', 'success');
     } catch (e) {
-        console.error(e);
+        console.error("❌ Submission failed:", e);
         notify('Lähetys epäonnistui', 'error');
     } finally {
         isSubmitting = false;
     }
 }
 
-// --- INITIALIZATION ---
+// --- SECTION 4: KÄYNNISTYS (INITIALIZATION) ---
 function init() {
     console.log("🚀 Vibe Checker v2.5.1 Käynnistyy...");
 
     const params = new URLSearchParams(window.location.search);
     const sessionParam = params.get('session');
 
+    // Tarkistetaan onko käyttäjä liittymässä linkin kautta
     if (sessionParam) {
         state.sessionId = sessionParam;
         state.userRole = 'partner_b';
         showScreen('input-screen');
         startListening(sessionParam);
-        notify('Tervetuloa mukaan!', 'success');
+        notify('Liitytty istuntoon!', 'success');
     }
 
-    // Nappien sidonnat (ID:t tarkistettu index.html:stä)
+    // NAPPIEN BINDING (ID:t täsmäävät index.html:ään)
     const createBtn = document.getElementById('create-session-btn');
     if (createBtn) createBtn.onclick = createSession;
 
@@ -162,12 +165,12 @@ function init() {
             if (input) {
                 input.select();
                 document.execCommand('copy');
-                notify('Kopioitu leikepöydälle!', 'success');
+                notify('Kopioitu!', 'success');
             }
         };
     }
 
-    // Moodin valinta
+    // Moodin valinta (Hae kaikki mood-napit)
     document.querySelectorAll('.mood-btn').forEach(btn => {
         btn.onclick = () => {
             state.mood = btn.dataset.mood;
@@ -176,7 +179,7 @@ function init() {
         };
     });
 
-    // Fokus-valinta (Lisätty takaisin)
+    // Fokus-valinta (Hae kaikki focus-napit)
     document.querySelectorAll('.focus-btn').forEach(btn => {
         btn.onclick = () => {
             state.focus = btn.dataset.focus;
@@ -195,7 +198,7 @@ function init() {
         };
     }
 
-    // Ohje-modal
+    // Ohje-modal (Global Help)
     const helpBtn = document.getElementById('global-help-btn');
     if (helpBtn) {
         helpBtn.onclick = () => {
@@ -204,18 +207,20 @@ function init() {
         };
     }
     
+    // Modalin sulkeminen
     const closeHelp = document.querySelector('.close-modal');
     if (closeHelp) {
         closeHelp.onclick = () => {
-            document.getElementById('help-modal').classList.remove('active');
+            const modal = document.getElementById('help-modal');
+            if (modal) modal.classList.remove('active');
         };
     }
 
-    // Resetointi
+    // Reset-nappi
     const resetBtn = document.getElementById('emergency-reset-btn');
     if (resetBtn) {
         resetBtn.onclick = () => {
-            if (confirm('Nollataanko kaikki tiedot?')) {
+            if (confirm('Haluatko varmasti nollata kaiken?')) {
                 localStorage.clear();
                 window.location.href = window.location.pathname;
             }
@@ -223,16 +228,18 @@ function init() {
     }
 }
 
-// Käynnistyslukko
+// Odotetaan sivun latausta ennen init-ajoa
 if (document.readyState === 'complete') {
     init();
 } else {
     window.addEventListener('load', init);
 }
 
-// Service Worker (PWA)
+// HUOM: Service Worker on kommentoitu pois debuggausta varten
+/*
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js').catch(() => {});
     });
 }
+*/
