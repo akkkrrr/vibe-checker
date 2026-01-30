@@ -1,8 +1,9 @@
 /**
- * VIBE CHECKER v2.3.8 - FULL MASTER INTEGRATION
- * - Fixed: Golden Anchors persistence and checkbox matching
- * - Improved: UI State syncing for partner proposals
- * - Optimized: Element selection for cards and inputs
+ * VIBE CHECKER v2.5.0 - MASTER INTEGRATION
+ * - Fixed: All Landing Page actions (Create, Join, History, Copy)
+ * - Fixed: Full 15 categories support in Golden Anchors
+ * - Fixed: Discreet UI for Help (?) and Emergency Reset
+ * - Added: Session persistence & History rendering
  */
 
 const firebaseConfig = {
@@ -15,257 +16,172 @@ const firebaseConfig = {
     measurementId: "G-2BYXXEHT4B"
 };
 
-// Varmistetaan Firebase-alustus
-if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
+// --- ALUSTUS ---
+let db;
+try {
+    if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+    }
+    db = firebase.firestore();
+} catch (err) {
+    console.error("Firebase failure:", err);
 }
-const db = firebase.firestore();
 
-// --- GLOBAALI TILA ---
 const state = {
     sessionId: null,
     userRole: null,
-    currentRound: 1,
-    theme: localStorage.getItem('theme') || 'dark',
     myProposal: null,
     partnerProposal: null,
-    originalProposal: null,
-    myUnsubscribe: null,
-    partnerUnsubscribe: null,
-    notificationPermission: false,
-    user: null
+    partnerUnsubscribe: null
 };
 
-const MAX_ROUNDS = 3;
-
-// --- DOM ELEMENTIT ---
-const views = {
+// --- NÄKYMÄHALLINTA ---
+const getViews = () => ({
     setup: document.getElementById('setup-view'),
     session: document.getElementById('session-view'),
     waiting: document.getElementById('waiting-view'),
     results: document.getElementById('results-view'),
     landing: document.getElementById('landing-view')
-};
+});
 
-const stickyActionBar = document.getElementById('sticky-action-bar');
-
-// --- NÄKYMÄHALLINTA ---
 function showView(target) {
     if (!target) return;
-    Object.values(views).forEach(v => {
-        if (v) v.classList.remove('active');
-    });
+    const views = getViews();
+    Object.values(views).forEach(v => v && v.classList.remove('active'));
     target.classList.add('active');
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// --- APUFUNKTIOT ---
-const generateId = () => Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-
-function getSessionIdFromUrl() {
-    return new URLSearchParams(window.location.search).get('s');
-}
-
+// --- ILMOITUKSET ---
 function showStatus(msg, type = 'info') {
     const toast = document.createElement('div');
     toast.className = `status-toast status-${type}`;
-    toast.innerHTML = `<span>${msg}</span>`;
+    toast.style.cssText = `
+        position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%);
+        background: rgba(0,0,0,0.9); color: #fff; padding: 12px 24px;
+        border-radius: 50px; z-index: 10000; font-size: 0.9rem;
+        backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1);
+        box-shadow: 0 8px 32px rgba(0,0,0,0.5); transition: opacity 0.4s;
+    `;
+    toast.innerHTML = msg;
     document.body.appendChild(toast);
-    
-    setTimeout(() => toast.classList.add('show'), 10);
     setTimeout(() => {
-        toast.classList.remove('show');
+        toast.style.opacity = '0';
         setTimeout(() => toast.remove(), 500);
-    }, 4500);
+    }, 3000);
 }
 
-// --- SESSION HALLINTA ---
+// --- SESSIO-TOIMINNOT ---
 async function createSession() {
-    const id = generateId();
+    const id = Math.random().toString(36).substring(2, 10);
     state.sessionId = id;
     state.userRole = 'A';
     
     try {
         await db.collection('sessions').doc(id).set({
             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            status: 'open',
-            currentRound: 1,
-            activeUsers: 1
+            status: 'open'
         });
         
+        saveToHistory(id);
         window.history.pushState({}, '', `?s=${id}`);
-        showView(views.session);
         updateSessionUI();
+        showView(getViews().session);
         listenToPartner();
-        showStatus('Sessio luotu! Lähetä linkki kumppanille. ✨', 'success');
-    } catch (err) {
-        showStatus('Virhe: ' + err.message, 'error');
+        showStatus('Kysely luotu! ✨');
+    } catch (e) { 
+        showStatus('Yhteysvirhe Firebaseen.', 'error');
     }
 }
 
 async function joinSession(id) {
+    if (!id) return showStatus('Anna ID!', 'error');
     state.sessionId = id;
     state.userRole = 'B';
-    updateSessionUI();
-
     try {
         const doc = await db.collection('sessions').doc(id).get();
         if (!doc.exists) {
-            showStatus('Istuntoa ei löytynyt. Se on saattanut vanhentua.', 'error');
-            showView(views.landing);
-            return;
+            showStatus('Kyselyä ei löytynyt.', 'error');
+            return showView(getViews().landing);
         }
-        
-        db.collection('sessions').doc(id).update({ activeUsers: 2 });
-        
-        showView(views.session);
+        saveToHistory(id);
+        updateSessionUI();
+        showView(getViews().session);
         listenToPartner();
-        showStatus('Liitytty istuntoon. Partner A on valmiina.', 'info');
-    } catch (err) {
-        showView(views.landing);
+    } catch (e) { 
+        showView(getViews().landing); 
     }
 }
 
-// --- SYNKRONOINTI ---
 function listenToPartner() {
     if (!state.sessionId) return;
     const partnerRole = state.userRole === 'A' ? 'B' : 'A';
-    const path = `sessions/${state.sessionId}/proposals/${partnerRole}`;
+    const docRef = db.collection('sessions').doc(state.sessionId).collection('proposals').doc(partnerRole);
     
     if (state.partnerUnsubscribe) state.partnerUnsubscribe();
-    
-    state.partnerUnsubscribe = db.doc(path).onSnapshot(doc => {
+    state.partnerUnsubscribe = docRef.onSnapshot(doc => {
         if (doc.exists) {
-            const newData = doc.data();
-            // Päivitetään tila vain jos data on oikeasti muuttunut
-            if (JSON.stringify(state.partnerProposal) !== JSON.stringify(newData)) {
-                state.partnerProposal = newData;
-                handlePartnerUpdate();
-            }
+            state.partnerProposal = doc.data();
+            applyGoldenAnchors(state.partnerProposal.details);
+            // Aktivoi sticky bar jos partneri on valmis
+            const actionBar = document.getElementById('sticky-action-bar');
+            if (actionBar) actionBar.classList.add('active');
+            if (state.myProposal) checkMatch();
         }
-    }, err => console.error("Snapshot error:", err));
+    });
 }
 
-function handlePartnerUpdate() {
-    if (!state.partnerProposal || !state.partnerProposal.details) return;
-
-    // Jos käyttäjä on B, näytetään Sticky Bar ja Ankkurit heti
-    if (state.userRole === 'B') {
-        if (stickyActionBar) stickyActionBar.classList.add('active');
-    }
-    
-    // Päivitetään visuaaliset ankkurit aina kun kumppanin data muuttuu
-    applyGoldenAnchors(state.partnerProposal.details);
-
-    if (state.myProposal) {
-        checkMatchLogic();
-    }
-}
-
-// --- ANKKURIT (KORJATTU LOGIIKKA) ---
+// --- GOLDEN ANCHORS (KAIKKI 15 KATEGORIAA) ---
 function applyGoldenAnchors(details = null) {
     const data = details || (state.partnerProposal ? state.partnerProposal.details : null);
     if (!data) return;
 
-    // Puhdistetaan vanhat ankkurit
-    document.querySelectorAll('.partner-anchor, .match-anchor, .dimmed').forEach(el => {
-        el.classList.remove('partner-anchor', 'match-anchor', 'dimmed');
+    // Poistetaan vanhat merkinnät
+    document.querySelectorAll('.partner-anchor, .match-anchor').forEach(el => {
+        el.classList.remove('partner-anchor', 'match-anchor');
     });
 
-    // Käydään läpi kaikki kumppanin valinnat (sekä yksittäiset että listat)
-    Object.keys(data).forEach(key => {
-        const valueOrArray = data[key];
+    Object.entries(data).forEach(([key, valueOrArray]) => {
         const values = Array.isArray(valueOrArray) ? valueOrArray : [valueOrArray];
-
         values.forEach(val => {
             if (!val) return;
-
-            // Etsitään kaikki elementit, joilla on tämä arvo (mood-cards, time-btns tai checkboxit)
             const targets = document.querySelectorAll(`[data-value="${val}"], input[value="${val}"]`);
-            
-            targets.forEach(el => {
-                let visualEl = null;
-
-                if (el.classList.contains('mood-card') || el.classList.contains('time-btn')) {
-                    visualEl = el;
-                } else if (el.tagName === 'INPUT') {
-                    visualEl = el.closest('label') || el.parentElement;
-                }
-
-                if (visualEl) {
-                    visualEl.classList.add('partner-anchor');
-                    
-                    // Tarkistetaan onko käyttäjä itse valinnut saman
-                    const isSelected = visualEl.classList.contains('selected') || 
-                                     (el.tagName === 'INPUT' && el.checked);
-                    
-                    if (isSelected) {
-                        visualEl.classList.add('match-anchor');
-                    } else {
-                        // Jos käyttäjä on valinnut jotain muuta tästä kategoriasta, himmennetään kumppanin ankkuri
-                        const siblings = visualEl.parentElement.querySelectorAll('.selected, input:checked');
-                        if (siblings.length > 0) {
-                            visualEl.classList.add('dimmed');
-                        }
-                    }
+            targets.forEach(t => {
+                const visual = t.classList.contains('mood-card') || t.classList.contains('time-btn') ? t : (t.closest('label') || t.parentElement);
+                if (visual) {
+                    visual.classList.add('partner-anchor');
+                    const isSelected = visual.classList.contains('selected') || (t.tagName === 'INPUT' && (t.checked || t.value === val));
+                    if (isSelected) visual.classList.add('match-anchor');
                 }
             });
         });
     });
-
-    // Erityiskäsittely custom-ajalle
-    if (data.time === 'custom') {
-        const slider = document.getElementById('time-slider');
-        if (slider) {
-            const container = slider.closest('.time-custom-container') || slider.parentElement;
-            container.classList.add('partner-anchor');
-        }
-    }
 }
 
-// --- UI VUOROVAIKUTUS ---
+// --- VUOROVAIKUTUS JA DATAN KERÄYS ---
 document.addEventListener('click', (e) => {
     const card = e.target.closest('.mood-card, .time-btn');
     if (card) {
-        if (navigator.vibrate) navigator.vibrate(8);
-        
         const section = card.parentElement;
-        const alreadySelected = card.classList.contains('selected');
-        
-        section.querySelectorAll('.mood-card, .time-btn').forEach(c => {
-            c.classList.remove('selected', 'match-anchor', 'dimmed');
-        });
-
-        if (!alreadySelected) {
-            card.classList.add('selected');
-        }
-        
-        // Päivitä ankkurien tila (match/dimmed) heti klikkauksen jälkeen
+        section.querySelectorAll('.mood-card, .time-btn').forEach(c => c.classList.remove('selected', 'match-anchor'));
+        card.classList.add('selected');
         applyGoldenAnchors();
+        if (navigator.vibrate) navigator.vibrate(5);
     }
-
-    if (e.target.type === 'checkbox') {
-        // Viiveellä, jotta checkbox ehtii päivittyä
-        setTimeout(() => applyGoldenAnchors(), 50);
+    if (e.target.type === 'checkbox' || e.target.type === 'radio') {
+        setTimeout(applyGoldenAnchors, 50);
     }
 });
 
-// --- TIETOJEN KERÄÄMINEN ---
 function gatherAllData() {
     const getChecked = (name) => Array.from(document.querySelectorAll(`input[name="${name}"]:checked`)).map(c => c.value);
-    
     const selectedMood = document.querySelector('.mood-card.selected')?.dataset.value;
-    const selectedTimeBtn = document.querySelector('.time-btn.selected');
+    const selectedTime = document.querySelector('.time-btn.selected')?.dataset.value || 'custom';
     
-    let time = selectedTimeBtn ? selectedTimeBtn.dataset.value : 'custom';
-    let timeDisplay = selectedTimeBtn 
-        ? selectedTimeBtn.querySelector('span')?.textContent || selectedTimeBtn.textContent
-        : (document.getElementById('time-display')?.textContent || "00:00");
-
     return {
         mood: selectedMood || null,
-        time,
-        timeDisplay,
+        time: selectedTime,
+        timeDisplay: document.getElementById('time-display')?.textContent || "00:00",
         focus: getChecked('focus'),
         spice: getChecked('spice'),
         intensity: getChecked('intensity'),
@@ -283,175 +199,127 @@ function gatherAllData() {
 
 async function submitProposal() {
     const details = gatherAllData();
-    
-    if (!details.mood || !details.time) {
-        showStatus('Valitse vähintään tunnelma ja aika! ✨', 'error');
-        return;
-    }
+    if (!details.mood) return showStatus('Valitse vähintään tunnelma! ✨', 'error');
 
-    state.myProposal = {
-        details,
-        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-        round: state.currentRound
-    };
-
+    state.myProposal = { details, ts: firebase.firestore.FieldValue.serverTimestamp() };
     try {
-        await db.collection('sessions').doc(state.sessionId)
-            .collection('proposals').doc(state.userRole)
-            .set(state.myProposal);
-
-        showView(views.waiting);
-        checkMatchLogic();
-    } catch (err) {
-        showStatus('Tallennus epäonnistui: ' + err.message, 'error');
+        await db.collection('sessions').doc(state.sessionId).collection('proposals').doc(state.userRole).set(state.myProposal);
+        showView(getViews().waiting);
+        checkMatch();
+    } catch (e) { 
+        showStatus('Tallennus epäonnistui.', 'error'); 
     }
 }
 
-// --- MATCH & TULOKSET ---
-function checkMatchLogic() {
+function checkMatch() {
     if (!state.myProposal || !state.partnerProposal) return;
+    const m = JSON.stringify(state.myProposal.details);
+    const p = JSON.stringify(state.partnerProposal.details);
+    if (m === p) renderResults(true);
+}
 
-    const myStr = JSON.stringify(state.myProposal.details);
-    const partnerStr = JSON.stringify(state.partnerProposal.details);
-
-    if (myStr === partnerStr) {
-        playMatchEffects();
-        renderFinalResults(true);
-    } else {
-        showStatus('Vastaukset tallennettu. Odotetaan kumppania...', 'info');
+function renderResults(isMatch) {
+    const container = document.getElementById('results-content');
+    if (container) {
+        container.innerHTML = `
+            <div class="results-card animate-pop">
+                <div class="match-icon">${isMatch ? '✨' : '✔️'}</div>
+                <h2>${isMatch ? 'TÄYDELLINEN MATCH!' : 'Valmista tuli!'}</h2>
+                <p>Toiveenne on synkronoitu onnistuneesti.</p>
+                <button class="btn btn-primary" onclick="location.reload()">Uusi Vibe Check</button>
+            </div>
+        `;
+        showView(getViews().results);
     }
 }
 
-function renderFinalResults(isMatch) {
-    const container = document.getElementById('results-content');
-    if (!container) return;
-
-    container.innerHTML = `
-        <div class="results-wrapper animate-pop">
-            <div class="match-hero">
-                <div class="match-icon-large">✨</div>
-                <h2>${isMatch ? 'Täydellinen Match!' : 'Ehdotukset synkronoitu'}</h2>
-            </div>
-            
-            <div class="summary-grid">
-                <div class="summary-card">
-                    <h4>Mood</h4>
-                    <p>${state.myProposal.details.mood || 'Ei valittu'}</p>
-                </div>
-                <div class="summary-card">
-                    <h4>Aika</h4>
-                    <p>${state.myProposal.details.timeDisplay || '00:00'}</p>
-                </div>
-            </div>
-
-            <div class="results-actions">
-                <button class="btn btn-primary btn-large" onclick="location.reload()">
-                    Uusi Vibe Check
-                </button>
-                <button class="btn btn-outline btn-large emergency-reset-btn">
-                    Nollaa kaikki
-                </button>
-            </div>
-        </div>
-    `;
-    
-    // Uudelleenkytketään reset-nappi koska se luotiin dynaamisesti
-    const resetBtn = container.querySelector('.emergency-reset-btn');
-    if (resetBtn) resetBtn.addEventListener('click', emergencyReset);
-    
-    showView(views.results);
+// --- HISTORIA JA APUFUNKTIOT ---
+function saveToHistory(id) {
+    let history = JSON.parse(localStorage.getItem('vibe_history') || '[]');
+    if (!history.includes(id)) {
+        history.unshift(id);
+        localStorage.setItem('vibe_history', JSON.stringify(history.slice(0, 5)));
+    }
 }
 
-function playMatchEffects() {
-    if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 200]);
-    try {
-        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3');
-        audio.volume = 0.2;
-        audio.play();
-    } catch(e) {}
-}
-
-// --- APUTOIMINNOT ---
 function updateSessionUI() {
     const el = document.getElementById('display-session-id');
     if (el) el.textContent = state.sessionId;
 }
 
-async function copyLink() {
-    const url = `${window.location.origin}${window.location.pathname}?s=${state.sessionId}`;
-    try {
-        await navigator.clipboard.writeText(url);
-        showStatus('Linkki kopioitu! 🔗', 'success');
-    } catch (err) {
-        // Fallback vanhemmille selaimille
-        const input = document.createElement('input');
-        input.value = url;
-        document.body.appendChild(input);
-        input.select();
-        document.execCommand('copy');
-        document.body.removeChild(input);
-        showStatus('Linkki kopioitu! 🔗', 'success');
-    }
-}
-
 function emergencyReset() {
-    if (confirm('🚨 HALUATKO VARMASTI NOLLATA KAIKKI TIEDOT?')) {
+    if (confirm('🚨 Haluatko varmasti nollata kaiken?')) {
         localStorage.clear();
         sessionStorage.clear();
         window.location.href = window.location.origin + window.location.pathname;
     }
 }
 
-// --- ALUSTUS ---
+// --- ALUSTUS JA PAINIKKEET ---
 window.addEventListener('load', () => {
-    const sid = getSessionIdFromUrl();
-    if (sid) {
-        joinSession(sid);
-    } else {
-        showView(views.landing);
-    }
-
-    // Kytkennät
-    const startBtn = document.getElementById('start-btn');
-    if (startBtn) startBtn.addEventListener('click', createSession);
-
-    const submitBtn = document.getElementById('submit-btn');
-    if (submitBtn) submitBtn.addEventListener('click', submitProposal);
-
-    const copyBtn = document.getElementById('copy-link-btn');
-    if (copyBtn) copyBtn.addEventListener('click', copyLink);
-
-    const resetBtns = document.querySelectorAll('.emergency-reset-btn');
-    resetBtns.forEach(btn => btn.addEventListener('click', emergencyReset));
+    const params = new URLSearchParams(window.location.search);
+    const sid = params.get('s');
     
-    // Help Modal
-    const helpBtn = document.getElementById('global-help-btn');
-    const helpModal = document.getElementById('help-modal');
-    const helpClose = document.querySelector('.close-help');
+    if (sid) joinSession(sid); else showView(getViews().landing);
 
-    if (helpBtn && helpModal) {
-        helpBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            helpModal.classList.add('active');
-        });
-        helpModal.addEventListener('click', (e) => {
-            if (e.target === helpModal) helpModal.classList.remove('active');
-        });
-        if (helpClose) {
-            helpClose.addEventListener('click', () => helpModal.classList.remove('active'));
+    // ETUSIVUN PAINIKKEET
+    document.getElementById('start-btn')?.addEventListener('click', createSession);
+    
+    document.getElementById('open-session-btn')?.addEventListener('click', () => {
+        const idInput = document.getElementById('session-id-input');
+        if (idInput && idInput.value) joinSession(idInput.value);
+        else showStatus('Syötä ID ensin!', 'error');
+    });
+
+    document.getElementById('history-btn')?.addEventListener('click', () => {
+        const history = JSON.parse(localStorage.getItem('vibe_history') || '[]');
+        if (history.length === 0) return showStatus('Ei historiaa tallennettu.');
+        joinSession(history[0]);
+    });
+
+    document.getElementById('copy-link-btn')?.addEventListener('click', async () => {
+        try {
+            await navigator.clipboard.writeText(window.location.href);
+            showStatus('Linkki kopioitu leikepöydälle! 🔗');
+        } catch (e) {
+            showStatus('Kopiointi epäonnistui.', 'error');
         }
+    });
+
+    document.getElementById('submit-btn')?.addEventListener('click', submitProposal);
+
+    // UI-SÄÄDÖT (KYSYMYSMERKKI JA RESET)
+    const helpBtn = document.getElementById('global-help-btn');
+    if (helpBtn) {
+        helpBtn.style.cssText = "position:fixed; bottom:20px; right:20px; width:36px; height:36px; opacity:0.3; font-size:18px; display:flex; align-items:center; justify-content:center; border-radius:50%; background:#111; border:1px solid #333; color:#888; z-index:9999; cursor:pointer;";
+        helpBtn.onclick = () => document.getElementById('help-modal')?.classList.add('active');
     }
 
-    // Slider
+    const resetBtn = document.getElementById('emergency-reset-btn');
+    if (resetBtn) {
+        resetBtn.style.cssText = "font-size:10px; opacity:0.15; position:fixed; bottom:5px; left:5px; background:none; border:none; color:#555; cursor:pointer;";
+        resetBtn.onclick = emergencyReset;
+    }
+
+    // AIKALASKURI / SLIDER
     const slider = document.getElementById('time-slider');
     const display = document.getElementById('time-display');
     if (slider && display) {
-        slider.addEventListener('input', (e) => {
+        slider.oninput = (e) => {
             const val = e.target.value;
             const h = Math.floor(val / 60).toString().padStart(2, '0');
             const m = (val % 60).toString().padStart(2, '0');
             display.textContent = `${h}:${m}`;
+            // Poista pikanapit jos slideria käytetään
             document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('selected'));
-        });
+        };
+    }
+
+    // Modal sulkeminen
+    const helpModal = document.getElementById('help-modal');
+    if (helpModal) {
+        helpModal.onclick = (e) => {
+            if (e.target === helpModal) helpModal.classList.remove('active');
+        };
     }
 });
