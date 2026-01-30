@@ -52,8 +52,11 @@ const stickyActionBar = document.getElementById('sticky-action-bar');
 
 // --- NÄKYMÄHALLINTA ---
 function showView(target) {
-    Object.values(views).forEach(v => v?.classList.remove('active'));
-    if (target) target.classList.add('active');
+    if (!target) return;
+    Object.values(views).forEach(v => {
+        if (v) v.classList.remove('active');
+    });
+    target.classList.add('active');
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -125,7 +128,7 @@ async function joinSession(id) {
     }
 }
 
-// --- SYNKRONOINTI (Tämä on se 1200 rivin ydin) ---
+// --- SYNKRONOINTI ---
 function listenToPartner() {
     if (!state.sessionId) return;
     const partnerRole = state.userRole === 'A' ? 'B' : 'A';
@@ -153,18 +156,16 @@ function handlePartnerUpdate() {
         applyGoldenAnchors(state.partnerProposal.details);
     }
 
-    // Jos molemmat vastanneet, tarkistetaan tulokset
     if (state.myProposal) {
         checkMatchLogic();
     }
 }
 
-// --- ANKKURIT (Uusi visuaalinen logiikka) ---
+// --- ANKKURIT ---
 function applyGoldenAnchors(details = null) {
     const data = details || (state.partnerProposal ? state.partnerProposal.details : null);
     if (!data) return;
 
-    // Puhdistus
     document.querySelectorAll('.partner-anchor, .match-anchor, .dimmed').forEach(el => {
         el.classList.remove('partner-anchor', 'match-anchor', 'dimmed');
     });
@@ -181,8 +182,6 @@ function applyGoldenAnchors(details = null) {
 
             if (visualEl) {
                 visualEl.classList.add('partner-anchor');
-                
-                // Tarkista onko käyttäjä jo valinnut tämän
                 const isSelected = visualEl.classList.contains('selected') || 
                                  (el.tagName === 'INPUT' && el.checked);
                 
@@ -193,14 +192,13 @@ function applyGoldenAnchors(details = null) {
         });
     });
 
-    // Erityiskäsittely Sliderille
     if (data.time === 'custom') {
         const slider = document.getElementById('time-slider');
         if (slider) slider.parentElement.classList.add('partner-anchor');
     }
 }
 
-// --- UI VUOROVAIKUTUS (Hienovaraiset efektit palautettu) ---
+// --- UI VUOROVAIKUTUS ---
 document.addEventListener('click', (e) => {
     const card = e.target.closest('.mood-card, .time-btn');
     if (card) {
@@ -211,7 +209,6 @@ document.addEventListener('click', (e) => {
 
         const alreadySelected = card.classList.contains('selected');
         
-        // Poista muut valinnat tästä kategoriasta
         section.querySelectorAll('.mood-card, .time-btn').forEach(c => {
             c.classList.remove('selected', 'match-anchor');
             if (c.classList.contains('partner-anchor')) {
@@ -223,7 +220,6 @@ document.addEventListener('click', (e) => {
             card.classList.add('selected');
             card.classList.remove('dimmed');
             
-            // Jos valittu kumppanin ankkuri -> Match!
             if (card.classList.contains('partner-anchor')) {
                 card.classList.add('match-anchor');
                 if (navigator.vibrate) navigator.vibrate([15, 30, 15]);
@@ -231,7 +227,6 @@ document.addEventListener('click', (e) => {
         }
     }
 
-    // Checkbox-logiikka ankkureille
     if (e.target.type === 'checkbox') {
         const label = e.target.closest('label');
         if (label && label.classList.contains('partner-anchor')) {
@@ -240,7 +235,7 @@ document.addEventListener('click', (e) => {
     }
 });
 
-// --- TIETOJEN KERÄÄMINEN (Kaikki 15 kategoriaa) ---
+// --- TIETOJEN KERÄÄMINEN ---
 function gatherAllData() {
     const getChecked = (name) => Array.from(document.querySelectorAll(`input[name="${name}"]:checked`)).map(c => c.value);
     
@@ -252,7 +247,6 @@ function gatherAllData() {
         ? selectedTimeBtn.querySelector('span').textContent 
         : (document.getElementById('time-display')?.textContent || "00:00");
 
-    // Tässä on Clauden laaja kategoria-arsenaali
     return {
         mood: selectedMood || null,
         time,
@@ -276,7 +270,7 @@ async function submitProposal() {
     const details = gatherAllData();
     
     if (!details.mood || !details.time) {
-        showStatus('Tunnelma ja aika ovat pakollisia! ✨', 'error');
+        showStatus('Valitse ensin tunnelma ja aika! ✨', 'error');
         return;
     }
 
@@ -294,25 +288,23 @@ async function submitProposal() {
         showView(views.waiting);
         checkMatchLogic();
     } catch (err) {
-        showStatus('Tallennus epäonnistui.', 'error');
+        showStatus('Tallennus epäonnistui: ' + err.message, 'error');
     }
 }
 
-// --- MATCH & TULOKSET (Täysimittainen logiikka) ---
+// --- MATCH & TULOKSET ---
 function checkMatchLogic() {
     if (!state.myProposal || !state.partnerProposal) return;
 
     const my = state.myProposal.details;
     const partner = state.partnerProposal.details;
 
-    // Vertailu
     const isExactMatch = JSON.stringify(my) === JSON.stringify(partner);
 
     if (isExactMatch) {
         playMatchEffects();
         renderFinalResults(true);
     } else {
-        // Phase 2: Ilmoitetaan eroista hienovaraisesti
         showStatus('Vastaukset lähetetty. Kumppanilla on hieman eri toiveita.', 'info');
     }
 }
@@ -387,8 +379,9 @@ function emergencyReset() {
     }
 }
 
-// --- ALUSTUS ---
-window.addEventListener('DOMContentLoaded', () => {
+// --- ALUSTUS JA ELEMENTTIEN KYTKENTÄ ---
+window.addEventListener('load', () => {
+    // 1. Tarkista sessio URL:stä
     const sid = getSessionIdFromUrl();
     if (sid) {
         joinSession(sid);
@@ -396,21 +389,44 @@ window.addEventListener('DOMContentLoaded', () => {
         showView(views.landing);
     }
 
-    // Event listenerit (Clauden täysimittainen setti)
-    document.getElementById('start-btn')?.addEventListener('click', createSession);
-    document.getElementById('submit-btn')?.addEventListener('click', submitProposal);
-    document.getElementById('copy-link-btn')?.addEventListener('click', copyLink);
-    document.getElementById('emergency-reset-btn')?.addEventListener('click', emergencyReset);
+    // 2. Kytke Landing Page painikkeet
+    const startBtn = document.getElementById('start-btn');
+    if (startBtn) startBtn.addEventListener('click', createSession);
+
+    // 3. Kytke Session Page painikkeet
+    const submitBtn = document.getElementById('submit-btn');
+    if (submitBtn) submitBtn.addEventListener('click', submitProposal);
+
+    const copyBtn = document.getElementById('copy-link-btn');
+    if (copyBtn) copyBtn.addEventListener('click', copyLink);
+
+    // 4. Emergency Reset (Footer)
+    const resetBtns = document.querySelectorAll('.emergency-reset-btn');
+    resetBtns.forEach(btn => btn.addEventListener('click', emergencyReset));
     
-    // Help modal
+    // 5. Global Help Button & Modal
     const helpBtn = document.getElementById('global-help-btn');
     const helpModal = document.getElementById('help-modal');
+    const helpClose = document.querySelector('.close-help'); // Varmistetaan jos HTML:ssä on ruksi
+
     if (helpBtn && helpModal) {
-        helpBtn.onclick = () => helpModal.classList.add('active');
-        helpModal.onclick = (e) => { if(e.target === helpModal) helpModal.classList.remove('active'); };
+        helpBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            helpModal.classList.add('active');
+        });
+
+        // Sulkeminen taustasta
+        helpModal.addEventListener('click', (e) => {
+            if (e.target === helpModal) helpModal.classList.remove('active');
+        });
+
+        // Sulkeminen erillisestä napista jos sellainen on
+        if (helpClose) {
+            helpClose.addEventListener('click', () => helpModal.classList.remove('active'));
+        }
     }
 
-    // Slider UI
+    // 6. Slider UI
     const slider = document.getElementById('time-slider');
     const display = document.getElementById('time-display');
     if (slider && display) {
@@ -425,17 +441,8 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // PWA päivitykset
+    // 7. PWA / SW (vapaaehtoinen mutta hyvä olla)
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/sw.js').then(reg => {
-            reg.onupdatefound = () => {
-                const installingWorker = reg.installing;
-                installingWorker.onstatechange = () => {
-                    if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                        if (confirm('Uusi päivitys saatavilla! Ladataanko?')) window.location.reload();
-                    }
-                };
-            };
-        });
+        navigator.serviceWorker.register('/sw.js').catch(() => {});
     }
 });
