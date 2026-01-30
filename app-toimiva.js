@@ -1,14 +1,10 @@
 /**
- * VIBE CHECKER v2.3-phase2
- * Phase 2 Complete:
- * - Sticky Action Bar (Partner B response buttons)
- * - Golden Anchors (Partner A selections visible)
- * - Emergency Reset (Panic button)
- * - Global Help Button (Fixed position)
- * - Time Slider (15min intervals)
- * - PWA Support (Installable)
- * - Notification System (5 channels)
- * Firebase Firestore + Vercel/Netlify
+ * VIBE CHECKER v1.6 - COMPLETE
+ * - Enhanced Match Visualization (15 categories)
+ * - Notification System (Browser + Visual + Audio)
+ * - Mobile Quick Actions (Sticky Footer)
+ * - Detailed History View
+ * Firebase Firestore + Vercel
  */
 
 const firebaseConfig = {
@@ -412,8 +408,6 @@ function hideStickyActionBar() {
 }
 
 // --- GOLDEN ANCHORS ---
-// HUOM: Ankkurit (partner-anchor class) lisätään jo prefillForm():ssa
-// Tämä funktio rekisteröi event listenerit jotka päivittävät ankkurien tilat (selected/dimmed)
 function applyGoldenAnchors() {
     // Lisää dimmed-luokka ankkuroituihin kortteihin kun käyttäjä valitsee ERI kortin
     document.addEventListener('click', (e) => {
