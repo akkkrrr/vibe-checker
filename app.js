@@ -1,8 +1,8 @@
 /**
- * VIBE CHECKER v2.3.7 - FULL MASTER INTEGRATION
- * - Based on original 1200+ line logic
- * - Integrated: Sticky Action Bar, Golden Anchors, Emergency Reset
- * - Fixed: Firebase initializations and missing UI hookups
+ * VIBE CHECKER v2.3.8 - FULL MASTER INTEGRATION
+ * - Fixed: Golden Anchors persistence and checkbox matching
+ * - Improved: UI State syncing for partner proposals
+ * - Optimized: Element selection for cards and inputs
  */
 
 const firebaseConfig = {
@@ -21,7 +21,7 @@ if (!firebase.apps.length) {
 }
 const db = firebase.firestore();
 
-// --- GLOBAALI TILA (Täysimittainen) ---
+// --- GLOBAALI TILA ---
 const state = {
     sessionId: null,
     userRole: null,
@@ -33,8 +33,7 @@ const state = {
     myUnsubscribe: null,
     partnerUnsubscribe: null,
     notificationPermission: false,
-    user: null,
-    history: [] // Clauden historiatoimintoa varten
+    user: null
 };
 
 const MAX_ROUNDS = 3;
@@ -80,7 +79,7 @@ function showStatus(msg, type = 'info') {
     }, 4500);
 }
 
-// --- SESSION HALLINTA (Full Logic) ---
+// --- SESSION HALLINTA ---
 async function createSession() {
     const id = generateId();
     state.sessionId = id;
@@ -117,7 +116,6 @@ async function joinSession(id) {
             return;
         }
         
-        // Päivitetään aktiivisten käyttäjien määrä
         db.collection('sessions').doc(id).update({ activeUsers: 2 });
         
         showView(views.session);
@@ -139,10 +137,11 @@ function listenToPartner() {
     state.partnerUnsubscribe = db.doc(path).onSnapshot(doc => {
         if (doc.exists) {
             const newData = doc.data();
-            if (JSON.stringify(state.partnerProposal) === JSON.stringify(newData)) return;
-            
-            state.partnerProposal = newData;
-            handlePartnerUpdate();
+            // Päivitetään tila vain jos data on oikeasti muuttunut
+            if (JSON.stringify(state.partnerProposal) !== JSON.stringify(newData)) {
+                state.partnerProposal = newData;
+                handlePartnerUpdate();
+            }
         }
     }, err => console.error("Snapshot error:", err));
 }
@@ -150,51 +149,77 @@ function listenToPartner() {
 function handlePartnerUpdate() {
     if (!state.partnerProposal || !state.partnerProposal.details) return;
 
-    // Phase 2: Jos käyttäjä on B, näytetään heti Sticky Bar ja Ankkurit
+    // Jos käyttäjä on B, näytetään Sticky Bar ja Ankkurit heti
     if (state.userRole === 'B') {
         if (stickyActionBar) stickyActionBar.classList.add('active');
-        applyGoldenAnchors(state.partnerProposal.details);
     }
+    
+    // Päivitetään visuaaliset ankkurit aina kun kumppanin data muuttuu
+    applyGoldenAnchors(state.partnerProposal.details);
 
     if (state.myProposal) {
         checkMatchLogic();
     }
 }
 
-// --- ANKKURIT ---
+// --- ANKKURIT (KORJATTU LOGIIKKA) ---
 function applyGoldenAnchors(details = null) {
     const data = details || (state.partnerProposal ? state.partnerProposal.details : null);
     if (!data) return;
 
+    // Puhdistetaan vanhat ankkurit
     document.querySelectorAll('.partner-anchor, .match-anchor, .dimmed').forEach(el => {
         el.classList.remove('partner-anchor', 'match-anchor', 'dimmed');
     });
 
-    const partnerValues = Object.values(data).flat();
+    // Käydään läpi kaikki kumppanin valinnat (sekä yksittäiset että listat)
+    Object.keys(data).forEach(key => {
+        const valueOrArray = data[key];
+        const values = Array.isArray(valueOrArray) ? valueOrArray : [valueOrArray];
 
-    partnerValues.forEach(val => {
-        const targets = document.querySelectorAll(`[data-value="${val}"], input[value="${val}"]`);
-        
-        targets.forEach(el => {
-            const visualEl = el.classList.contains('mood-card') || el.classList.contains('time-btn') 
-                             ? el 
-                             : el.closest('label');
+        values.forEach(val => {
+            if (!val) return;
 
-            if (visualEl) {
-                visualEl.classList.add('partner-anchor');
-                const isSelected = visualEl.classList.contains('selected') || 
-                                 (el.tagName === 'INPUT' && el.checked);
-                
-                if (isSelected) {
-                    visualEl.classList.add('match-anchor');
+            // Etsitään kaikki elementit, joilla on tämä arvo (mood-cards, time-btns tai checkboxit)
+            const targets = document.querySelectorAll(`[data-value="${val}"], input[value="${val}"]`);
+            
+            targets.forEach(el => {
+                let visualEl = null;
+
+                if (el.classList.contains('mood-card') || el.classList.contains('time-btn')) {
+                    visualEl = el;
+                } else if (el.tagName === 'INPUT') {
+                    visualEl = el.closest('label') || el.parentElement;
                 }
-            }
+
+                if (visualEl) {
+                    visualEl.classList.add('partner-anchor');
+                    
+                    // Tarkistetaan onko käyttäjä itse valinnut saman
+                    const isSelected = visualEl.classList.contains('selected') || 
+                                     (el.tagName === 'INPUT' && el.checked);
+                    
+                    if (isSelected) {
+                        visualEl.classList.add('match-anchor');
+                    } else {
+                        // Jos käyttäjä on valinnut jotain muuta tästä kategoriasta, himmennetään kumppanin ankkuri
+                        const siblings = visualEl.parentElement.querySelectorAll('.selected, input:checked');
+                        if (siblings.length > 0) {
+                            visualEl.classList.add('dimmed');
+                        }
+                    }
+                }
+            });
         });
     });
 
+    // Erityiskäsittely custom-ajalle
     if (data.time === 'custom') {
         const slider = document.getElementById('time-slider');
-        if (slider) slider.parentElement.classList.add('partner-anchor');
+        if (slider) {
+            const container = slider.closest('.time-custom-container') || slider.parentElement;
+            container.classList.add('partner-anchor');
+        }
     }
 }
 
@@ -205,33 +230,23 @@ document.addEventListener('click', (e) => {
         if (navigator.vibrate) navigator.vibrate(8);
         
         const section = card.parentElement;
-        if (!section) return;
-
         const alreadySelected = card.classList.contains('selected');
         
         section.querySelectorAll('.mood-card, .time-btn').forEach(c => {
-            c.classList.remove('selected', 'match-anchor');
-            if (c.classList.contains('partner-anchor')) {
-                c.classList.add('dimmed');
-            }
+            c.classList.remove('selected', 'match-anchor', 'dimmed');
         });
 
         if (!alreadySelected) {
             card.classList.add('selected');
-            card.classList.remove('dimmed');
-            
-            if (card.classList.contains('partner-anchor')) {
-                card.classList.add('match-anchor');
-                if (navigator.vibrate) navigator.vibrate([15, 30, 15]);
-            }
         }
+        
+        // Päivitä ankkurien tila (match/dimmed) heti klikkauksen jälkeen
+        applyGoldenAnchors();
     }
 
     if (e.target.type === 'checkbox') {
-        const label = e.target.closest('label');
-        if (label && label.classList.contains('partner-anchor')) {
-            e.target.checked ? label.classList.add('match-anchor') : label.classList.remove('match-anchor');
-        }
+        // Viiveellä, jotta checkbox ehtii päivittyä
+        setTimeout(() => applyGoldenAnchors(), 50);
     }
 });
 
@@ -244,7 +259,7 @@ function gatherAllData() {
     
     let time = selectedTimeBtn ? selectedTimeBtn.dataset.value : 'custom';
     let timeDisplay = selectedTimeBtn 
-        ? selectedTimeBtn.querySelector('span').textContent 
+        ? selectedTimeBtn.querySelector('span')?.textContent || selectedTimeBtn.textContent
         : (document.getElementById('time-display')?.textContent || "00:00");
 
     return {
@@ -270,7 +285,7 @@ async function submitProposal() {
     const details = gatherAllData();
     
     if (!details.mood || !details.time) {
-        showStatus('Valitse ensin tunnelma ja aika! ✨', 'error');
+        showStatus('Valitse vähintään tunnelma ja aika! ✨', 'error');
         return;
     }
 
@@ -296,16 +311,14 @@ async function submitProposal() {
 function checkMatchLogic() {
     if (!state.myProposal || !state.partnerProposal) return;
 
-    const my = state.myProposal.details;
-    const partner = state.partnerProposal.details;
+    const myStr = JSON.stringify(state.myProposal.details);
+    const partnerStr = JSON.stringify(state.partnerProposal.details);
 
-    const isExactMatch = JSON.stringify(my) === JSON.stringify(partner);
-
-    if (isExactMatch) {
+    if (myStr === partnerStr) {
         playMatchEffects();
         renderFinalResults(true);
     } else {
-        showStatus('Vastaukset lähetetty. Kumppanilla on hieman eri toiveita.', 'info');
+        showStatus('Vastaukset tallennettu. Odotetaan kumppania...', 'info');
     }
 }
 
@@ -323,11 +336,11 @@ function renderFinalResults(isMatch) {
             <div class="summary-grid">
                 <div class="summary-card">
                     <h4>Mood</h4>
-                    <p>${state.myProposal.details.mood}</p>
+                    <p>${state.myProposal.details.mood || 'Ei valittu'}</p>
                 </div>
                 <div class="summary-card">
                     <h4>Aika</h4>
-                    <p>${state.myProposal.details.timeDisplay}</p>
+                    <p>${state.myProposal.details.timeDisplay || '00:00'}</p>
                 </div>
             </div>
 
@@ -335,12 +348,17 @@ function renderFinalResults(isMatch) {
                 <button class="btn btn-primary btn-large" onclick="location.reload()">
                     Uusi Vibe Check
                 </button>
-                <button class="btn btn-outline btn-large" onclick="emergencyReset()">
+                <button class="btn btn-outline btn-large emergency-reset-btn">
                     Nollaa kaikki
                 </button>
             </div>
         </div>
     `;
+    
+    // Uudelleenkytketään reset-nappi koska se luotiin dynaamisesti
+    const resetBtn = container.querySelector('.emergency-reset-btn');
+    if (resetBtn) resetBtn.addEventListener('click', emergencyReset);
+    
     showView(views.results);
 }
 
@@ -348,7 +366,7 @@ function playMatchEffects() {
     if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 200]);
     try {
         const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3');
-        audio.volume = 0.25;
+        audio.volume = 0.2;
         audio.play();
     } catch(e) {}
 }
@@ -365,23 +383,27 @@ async function copyLink() {
         await navigator.clipboard.writeText(url);
         showStatus('Linkki kopioitu! 🔗', 'success');
     } catch (err) {
-        showStatus('Kopiointi epäonnistui.', 'error');
+        // Fallback vanhemmille selaimille
+        const input = document.createElement('input');
+        input.value = url;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand('copy');
+        document.body.removeChild(input);
+        showStatus('Linkki kopioitu! 🔗', 'success');
     }
 }
 
 function emergencyReset() {
     if (confirm('🚨 HALUATKO VARMASTI NOLLATA KAIKKI TIEDOT?')) {
-        if (confirm('Varmista vielä: Tämä poistaa paikallisen välimuistin ja palaat alkuun.')) {
-            localStorage.clear();
-            sessionStorage.clear();
-            window.location.href = window.location.pathname;
-        }
+        localStorage.clear();
+        sessionStorage.clear();
+        window.location.href = window.location.origin + window.location.pathname;
     }
 }
 
-// --- ALUSTUS JA ELEMENTTIEN KYTKENTÄ ---
+// --- ALUSTUS ---
 window.addEventListener('load', () => {
-    // 1. Tarkista sessio URL:stä
     const sid = getSessionIdFromUrl();
     if (sid) {
         joinSession(sid);
@@ -389,44 +411,38 @@ window.addEventListener('load', () => {
         showView(views.landing);
     }
 
-    // 2. Kytke Landing Page painikkeet
+    // Kytkennät
     const startBtn = document.getElementById('start-btn');
     if (startBtn) startBtn.addEventListener('click', createSession);
 
-    // 3. Kytke Session Page painikkeet
     const submitBtn = document.getElementById('submit-btn');
     if (submitBtn) submitBtn.addEventListener('click', submitProposal);
 
     const copyBtn = document.getElementById('copy-link-btn');
     if (copyBtn) copyBtn.addEventListener('click', copyLink);
 
-    // 4. Emergency Reset (Footer)
     const resetBtns = document.querySelectorAll('.emergency-reset-btn');
     resetBtns.forEach(btn => btn.addEventListener('click', emergencyReset));
     
-    // 5. Global Help Button & Modal
+    // Help Modal
     const helpBtn = document.getElementById('global-help-btn');
     const helpModal = document.getElementById('help-modal');
-    const helpClose = document.querySelector('.close-help'); // Varmistetaan jos HTML:ssä on ruksi
+    const helpClose = document.querySelector('.close-help');
 
     if (helpBtn && helpModal) {
         helpBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             helpModal.classList.add('active');
         });
-
-        // Sulkeminen taustasta
         helpModal.addEventListener('click', (e) => {
             if (e.target === helpModal) helpModal.classList.remove('active');
         });
-
-        // Sulkeminen erillisestä napista jos sellainen on
         if (helpClose) {
             helpClose.addEventListener('click', () => helpModal.classList.remove('active'));
         }
     }
 
-    // 6. Slider UI
+    // Slider
     const slider = document.getElementById('time-slider');
     const display = document.getElementById('time-display');
     if (slider && display) {
@@ -435,14 +451,7 @@ window.addEventListener('load', () => {
             const h = Math.floor(val / 60).toString().padStart(2, '0');
             const m = (val % 60).toString().padStart(2, '0');
             display.textContent = `${h}:${m}`;
-            
             document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('selected'));
-            slider.classList.add('selected');
         });
-    }
-
-    // 7. PWA / SW (vapaaehtoinen mutta hyvä olla)
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/sw.js').catch(() => {});
     }
 });
