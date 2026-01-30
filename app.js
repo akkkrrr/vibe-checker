@@ -1,15 +1,215 @@
 /**
- * VIBE CHECKER v2.3-phase2
- * Phase 2 Complete:
- * - Sticky Action Bar (Partner B response buttons)
- * - Golden Anchors (Partner A selections visible)
- * - Emergency Reset (Panic button)
- * - Global Help Button (Fixed position)
- * - Time Slider (15min intervals)
- * - PWA Support (Installable)
- * - Notification System (5 channels)
+ * ================================================
+ * VIBE CHECKER v2.5-robustness
+ * ================================================
+ * Phase 2.5.1: Särkymättömyys (STARTED)
+ * - Safety Helpers (safeJSONParse, safeGet, bindClick) ✅
+ * - DOM Protection (in progress)
+ * - Race Condition Prevention (in progress)
+ * 
+ * Previous: v2.3-phase2
+ * - Sticky Action Bar ✅
+ * - Golden Anchors ✅
+ * - Emergency Reset ✅
+ * - Global Help Button ✅
+ * - Time Slider ✅
+ * - PWA Support ✅
+ * - Notification System ✅
+ * 
  * Firebase Firestore + Vercel/Netlify
+ * ================================================
  */
+
+/* ================================================
+   SECTION 1: SAFETY HELPERS
+   ================================================ */
+
+/**
+ * Turvallinen JSON-parsinta
+ * @param {string} str - JSON string
+ * @param {*} fallback - Default value
+ * @returns {*} Parsed object or fallback
+ */
+function safeJSONParse(str, fallback = null) {
+    if (!str || typeof str !== 'string') {
+        console.warn('⚠️ safeJSONParse: Invalid input');
+        return fallback;
+    }
+    try {
+        return JSON.parse(str);
+    } catch (e) {
+        console.error('❌ JSON parse failed:', e.message);
+        return fallback;
+    }
+}
+
+/**
+ * Turvallinen objektin polun haku (lodash.get style)
+ * @param {object} obj - Target object
+ * @param {string} path - Path (e.g. "user.profile.name")
+ * @param {*} fallback - Default value
+ * @returns {*} Value or fallback
+ */
+function safeGet(obj, path, fallback = null) {
+    if (!obj || typeof obj !== 'object') return fallback;
+    return path.split('.').reduce((o, p) => o?.[p], obj) ?? fallback;
+}
+
+/**
+ * Turvallinen DOM event binding
+ * @param {string} selector - CSS selector
+ * @param {function} handler - Event handler
+ * @param {string} event - Event type (default: 'click')
+ * @param {Element} context - Context (default: document)
+ * @returns {Element|null} Element or null
+ */
+function bindClick(selector, handler, event = 'click', context = document) {
+    const el = context.querySelector(selector);
+    if (el) {
+        el.addEventListener(event, handler);
+        return el;
+    } else {
+        console.warn(`⚠️ Element not found: ${selector}`);
+        return null;
+    }
+}
+
+/**
+ * Turvallinen querySelectorAll
+ * @param {string} selector - CSS selector
+ * @param {Element} context - Context
+ * @returns {Array} Array of elements (empty if error)
+ */
+function safeQueryAll(selector, context = document) {
+    try {
+        return Array.from(context.querySelectorAll(selector));
+    } catch (e) {
+        console.error(`❌ QueryAll failed for ${selector}:`, e.message);
+        return [];
+    }
+}
+
+/**
+ * Turvallinen localStorage GET
+ * @param {string} key - Key
+ * @param {*} fallback - Default value
+ * @returns {*} Value or fallback
+ */
+function safeLocalStorageGet(key, fallback = null) {
+    try {
+        const value = localStorage.getItem(key);
+        if (!value) return fallback;
+        
+        if (value.startsWith('{') || value.startsWith('[')) {
+            return safeJSONParse(value, fallback);
+        }
+        return value;
+    } catch (e) {
+        console.error(`❌ localStorage.getItem("${key}"):`, e.message);
+        return fallback;
+    }
+}
+
+/**
+ * Turvallinen localStorage SET
+ * @param {string} key - Key
+ * @param {*} value - Value (object or primitive)
+ * @returns {boolean} Success
+ */
+function safeLocalStorageSet(key, value) {
+    try {
+        const toStore = typeof value === 'object' ? JSON.stringify(value) : String(value);
+        localStorage.setItem(key, toStore);
+        return true;
+    } catch (e) {
+        console.error(`❌ localStorage.setItem("${key}"):`, e.message);
+        
+        if (e.name === 'QuotaExceededError') {
+            console.warn('⚠️ Quota exceeded, clearing old data...');
+            try {
+                localStorage.removeItem('vibe_history');
+                localStorage.setItem(key, toStore);
+                return true;
+            } catch (e2) {
+                console.error('❌ Still failed after cleanup');
+            }
+        }
+        return false;
+    }
+}
+
+/**
+ * Turvallinen getElementById
+ * @param {string} id - Element ID
+ * @param {string} expectedTag - Expected tag (optional)
+ * @returns {Element|null} Element or null
+ */
+function safeGetElement(id, expectedTag = null) {
+    const el = document.getElementById(id);
+    
+    if (!el) {
+        console.warn(`⚠️ Element not found: #${id}`);
+        return null;
+    }
+    
+    if (expectedTag && el.tagName.toLowerCase() !== expectedTag.toLowerCase()) {
+        console.warn(`⚠️ #${id} is <${el.tagName}>, expected <${expectedTag}>`);
+        return null;
+    }
+    
+    return el;
+}
+
+/**
+ * Error boundary wrapper
+ * @param {function} fn - Function that might throw
+ * @param {string} context - Context name for error messages
+ * @returns {function} Wrapped function
+ */
+function withErrorBoundary(fn, context = 'unknown') {
+    return function(...args) {
+        try {
+            return fn.apply(this, args);
+        } catch (e) {
+            console.error(`❌ Error in ${context}:`, e);
+            notify(`⚠️ Virhe: ${context} epäonnistui`);
+            return null;
+        }
+    };
+}
+
+/**
+ * Virhesivu (fallback kun kaikki failaa)
+ * @param {string} message - Error message
+ */
+function showErrorScreen(message) {
+    document.body.innerHTML = `
+        <div style="display: flex; align-items: center; justify-content: center; 
+                    min-height: 100vh; padding: 2rem; text-align: center;
+                    background: #0b0b14; color: white; font-family: sans-serif;">
+            <div>
+                <h1 style="font-size: 3rem; margin-bottom: 1rem;">⚠️</h1>
+                <p style="font-size: 1.2rem; margin-bottom: 2rem; opacity: 0.8;">${message}</p>
+                <button onclick="location.reload()" 
+                        style="padding: 1rem 2rem; font-size: 1rem; 
+                               border-radius: 8px; cursor: pointer;
+                               background: linear-gradient(135deg, #d4af37, #b8941e);
+                               border: none; color: #0b0b14; font-weight: 600;">
+                    🔄 Päivitä sivu
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+/* ================================================
+   END OF SECTION 1: SAFETY HELPERS
+   ================================================ */
+
+
+/* ================================================
+   SECTION 2: FIREBASE & STATE
+   ================================================ */
 
 const firebaseConfig = {
     apiKey: "AIzaSyDc4Wz35pzGP-Udi1R4JtJWLtolQiRJzJo",
@@ -28,24 +228,34 @@ const state = {
     sessionId: null,
     userRole: null,
     currentRound: 1,
-    theme: localStorage.getItem('theme') || 'dark',
+    theme: safeLocalStorageGet('theme', 'dark'), // ← FIXED: safe getter
     myProposal: null,
     partnerProposal: null,
     originalProposal: null,
     myUnsubscribe: null,
     partnerUnsubscribe: null,
     notificationPermission: false,
-    user: null  // ← Valmius Phase 3 Auth:lle
+    user: null,  // ← Phase 3 Auth prep
+    sessionPostponed: false, // ← Phase 2.5.3: Postpone support
+    postponeReason: null
 };
 
 const MAX_ROUNDS = 3;
 
+// ← Phase 2.5.1: Race condition prevention
+let isSubmitting = false;
+let isCreatingSession = false;
+
 // --- NÄKYMÄT ---
 function showScreen(id) {
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    const target = document.getElementById(id + '-screen');
-    if (target) target.classList.add('active');
-    window.scrollTo(0, 0);
+    safeQueryAll('.screen').forEach(s => s.classList.remove('active')); // ← FIXED: safe query
+    const target = safeGetElement(id + '-screen'); // ← FIXED: safe getter
+    if (target) {
+        target.classList.add('active');
+    } else {
+        console.error(`❌ Screen not found: ${id}-screen`);
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function notify(msg) {
@@ -510,12 +720,27 @@ function emergencyReset() {
 
 // --- TOIMINNOT ---
 async function createSession() {
-    const id = Math.random().toString(36).substring(2, 8).toUpperCase();
+    // ← PHASE 2.5.1: Race condition prevention
+    if (isCreatingSession) {
+        notify('⏳ Luodaan jo sessiota...');
+        return;
+    }
     
-    // Pyydä notification-lupa
-    requestNotificationPermission();
+    isCreatingSession = true;
+    const createBtn = document.querySelector('[onclick="createSession()"]');
+    const originalHTML = createBtn ? createBtn.innerHTML : '';
+    
+    if (createBtn) {
+        createBtn.disabled = true;
+        createBtn.innerHTML = '⏳ Luodaan...';
+    }
     
     try {
+        const id = Math.random().toString(36).substring(2, 8).toUpperCase();
+        
+        // Pyydä notification-lupa
+        requestNotificationPermission();
+        
         await db.collection("sessions").doc(id).set({
             status: "waiting",
             currentRound: 1,
@@ -526,7 +751,8 @@ async function createSession() {
         state.userRole = 'partner_a';
         state.currentRound = 1;
         
-        document.getElementById('session-id-display').textContent = id;
+        const sessionDisplay = safeGetElement('session-id-display'); // ← FIXED: safe getter
+        if (sessionDisplay) sessionDisplay.textContent = id;
         
         const url = window.location.origin + window.location.pathname + '?session=' + id;
         navigator.clipboard.writeText(url);
@@ -535,8 +761,15 @@ async function createSession() {
         showScreen('selection');
         startListening();
     } catch (e) {
-        console.error(e);
+        console.error('❌ createSession failed:', e);
         notify("❌ Virhe session luonnissa!");
+    } finally {
+        // ← PHASE 2.5.1: Always reset flag
+        isCreatingSession = false;
+        if (createBtn) {
+            createBtn.disabled = false;
+            createBtn.innerHTML = originalHTML;
+        }
     }
 }
 
@@ -619,18 +852,34 @@ async function quickAccept() {
 }
 
 async function submitSelection() {
-    const details = {};
-    let mood = "ei valittu";
-    let focus = "ei valittu";
-    let tempo = null;
-    let intensity = null;
-    let control = null;
-    let role = null;
-    let time = null;
-    let timeDisplay = null;
+    // ← PHASE 2.5.1: Race condition prevention
+    if (isSubmitting) {
+        notify('⏳ Tallennetaan jo...');
+        return;
+    }
+    
+    isSubmitting = true;
+    const submitBtn = document.getElementById('submit-selection-btn');
+    const originalHTML = submitBtn ? submitBtn.innerHTML : '';
+    
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '⏳ Tallennetaan...';
+    }
+    
+    try {
+        const details = {};
+        let mood = "ei valittu";
+        let focus = "ei valittu";
+        let tempo = null;
+        let intensity = null;
+        let control = null;
+        let role = null;
+        let time = null;
+        let timeDisplay = null;
 
-    // Kerää kortit
-    document.querySelectorAll('.selected').forEach(el => {
+        // Kerää kortit
+        safeQueryAll('.selected').forEach(el => { // ← FIXED: safe query
         if (el.dataset.mood) mood = el.dataset.mood;
         if (el.dataset.focus) focus = el.dataset.focus;
         if (el.dataset.tempo) tempo = el.dataset.tempo;
@@ -740,13 +989,22 @@ async function submitSelection() {
             renderResults();
         } else {
             showScreen('results');
-            document.getElementById('waiting-state').style.display = 'block';
-            document.getElementById('match-results').style.display = 'none';
+            const waitingState = safeGetElement('waiting-state'); // ← FIXED: safe getter
+            const matchResults = safeGetElement('match-results'); // ← FIXED: safe getter
+            if (waitingState) waitingState.style.display = 'block';
+            if (matchResults) matchResults.style.display = 'none';
             notify("✅ Ehdotus lähetetty kumppanille!");
         }
     } catch (e) {
-        console.error(e);
+        console.error('❌ submitSelection failed:', e);
         notify("❌ Lähetys epäonnistui!");
+    } finally {
+        // ← PHASE 2.5.1: Always reset flag
+        isSubmitting = false;
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalHTML;
+        }
     }
 }
 
@@ -932,14 +1190,14 @@ function saveMatchToHistory() {
     };
     
     // LocalStorage (anonyymi + nopea)
-    let history = JSON.parse(localStorage.getItem('vibe_history') || '[]');
+    let history = safeLocalStorageGet('vibe_history', []); // ← FIXED: safe getter
     history.unshift(historyEntry);
     
     if (history.length > 50) {
         history = history.slice(0, 50);
     }
     
-    localStorage.setItem('vibe_history', JSON.stringify(history));
+    safeLocalStorageSet('vibe_history', history); // ← FIXED: safe setter
     
     // Firestore (kirjautunut, Phase 3)
     if (state.user) {
@@ -961,7 +1219,7 @@ function loadHistory() {
     const historyList = document.getElementById('history-list');
     if (!historyList) return;
     
-    const history = JSON.parse(localStorage.getItem('vibe_history') || '[]');
+    const history = safeLocalStorageGet('vibe_history', []); // ← FIXED: safe getter
     
     if (history.length === 0) {
         historyList.innerHTML = `
@@ -1009,7 +1267,7 @@ function loadHistory() {
 }
 
 function viewHistoryDetails(index) {
-    const history = JSON.parse(localStorage.getItem('vibe_history') || '[]');
+    const history = safeLocalStorageGet('vibe_history', []); // ← FIXED: safe getter
     const session = history[index];
     
     if (!session) return;
@@ -1148,9 +1406,9 @@ function deleteHistorySession(index) {
     if (!confirm('Poista tämä sessio historiasta?')) return;
     if (navigator.vibrate) navigator.vibrate(20);
     
-    let history = JSON.parse(localStorage.getItem('vibe_history') || '[]');
+    let history = safeLocalStorageGet('vibe_history', []); // ← FIXED: safe getter
     history.splice(index, 1);
-    localStorage.setItem('vibe_history', JSON.stringify(history));
+    safeLocalStorageSet('vibe_history', history); // ← FIXED: safe setter
     
     loadHistory();
     notify('🗑️ Sessio poistettu');
@@ -1478,7 +1736,7 @@ document.addEventListener('DOMContentLoaded', () => {
             state.theme = state.theme === 'dark' ? 'light' : 'dark';
             document.body.setAttribute('data-theme', state.theme);
             themeBtn.textContent = state.theme === 'dark' ? '🌙' : '☀️';
-            localStorage.setItem('theme', state.theme);
+            safeLocalStorageSet('theme', state.theme); // ← FIXED: safe setter
             if (navigator.vibrate) navigator.vibrate(10);
         };
     }
