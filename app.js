@@ -287,6 +287,7 @@ function prefillForm(details) {
         const card = document.querySelector(`[data-mood="${details.mood}"]`);
         if (card) {
             card.classList.add('selected');
+            card.classList.add('partner-anchor'); // ← GOLDEN ANCHOR
             card.style.animation = 'prefillHighlight 1s ease';
         }
     }
@@ -296,6 +297,7 @@ function prefillForm(details) {
         const card = document.querySelector(`[data-focus="${details.focus}"]`);
         if (card) {
             card.classList.add('selected');
+            card.classList.add('partner-anchor'); // ← GOLDEN ANCHOR
             card.style.animation = 'prefillHighlight 1s ease';
         }
     }
@@ -305,6 +307,7 @@ function prefillForm(details) {
         const card = document.querySelector(`[data-tempo="${details.tempo}"]`);
         if (card) {
             card.classList.add('selected');
+            card.classList.add('partner-anchor'); // ← GOLDEN ANCHOR
             card.style.animation = 'prefillHighlight 1s ease';
         }
     }
@@ -314,6 +317,7 @@ function prefillForm(details) {
         const card = document.querySelector(`[data-intensity="${details.intensity}"]`);
         if (card) {
             card.classList.add('selected');
+            card.classList.add('partner-anchor'); // ← GOLDEN ANCHOR
             card.style.animation = 'prefillHighlight 1s ease';
         }
     }
@@ -323,6 +327,7 @@ function prefillForm(details) {
         const card = document.querySelector(`[data-control="${details.control}"]`);
         if (card) {
             card.classList.add('selected');
+            card.classList.add('partner-anchor'); // ← GOLDEN ANCHOR
             card.style.animation = 'prefillHighlight 1s ease';
         }
     }
@@ -332,6 +337,7 @@ function prefillForm(details) {
         const card = document.querySelector(`[data-role="${details.role}"]`);
         if (card) {
             card.classList.add('selected');
+            card.classList.add('partner-anchor'); // ← GOLDEN ANCHOR
             card.style.animation = 'prefillHighlight 1s ease';
         }
     }
@@ -351,6 +357,7 @@ function prefillForm(details) {
                 timeSlider.value = totalMinutes;
                 timeDisplay.textContent = details.timeDisplay;
                 timeSlider.classList.add('selected');
+                timeSlider.classList.add('partner-anchor'); // ← GOLDEN ANCHOR (slider)
                 
                 // Päivitä progress bar
                 const progress = (totalMinutes / 1440) * 100;
@@ -362,6 +369,7 @@ function prefillForm(details) {
             const card = document.querySelector(`[data-time="${details.time}"]`);
             if (card) {
                 card.classList.add('selected');
+                card.classList.add('partner-anchor'); // ← GOLDEN ANCHOR
                 card.style.animation = 'prefillHighlight 1s ease';
             }
         }
@@ -375,16 +383,125 @@ function prefillForm(details) {
                 if (checkbox) {
                     checkbox.checked = true;
                     const label = checkbox.closest('label');
-                    if (label) label.style.animation = 'prefillHighlight 1s ease';
+                    if (label) {
+                        label.classList.add('partner-anchor'); // ← GOLDEN ANCHOR (checkbox labels)
+                        label.style.animation = 'prefillHighlight 1s ease';
+                    }
                 }
             });
         }
     });
 }
+    applyGoldenAnchors(details);
+}
 
 function clearAllSelections() {
     document.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
     document.querySelectorAll('input[type="checkbox"]:checked').forEach(cb => cb.checked = false);
+}
+
+// --- STICKY ACTION BAR ---
+
+function hideStickyActionBar() {
+    const bar = document.getElementById('sticky-action-bar');
+    if (bar) {
+        bar.style.display = 'none';
+    }
+}
+
+// --- GOLDEN ANCHORS ---
+function applyGoldenAnchors() {
+    // Lisää dimmed-luokka ankkuroituihin kortteihin kun käyttäjä valitsee ERI kortin
+    document.addEventListener('click', (e) => {
+        const card = e.target.closest('.mood-card, .time-btn');
+        if (!card) return;
+        
+        const parent = card.parentElement;
+        
+        // Poista selected + päivitä dimmed
+        parent.querySelectorAll('.mood-card, .time-btn').forEach(c => {
+            c.classList.remove('selected');
+            
+            // Jos oli ankkuroitu MUTTA ei klikattu → dimmed
+            if (c.classList.contains('partner-anchor') && c !== card) {
+                c.classList.add('dimmed');
+            }
+        });
+        
+        // Lisää selected klikatulle
+        card.classList.add('selected');
+        
+        // Jos ankkuroitu JA klikattu → poista dimmed
+        if (card.classList.contains('partner-anchor')) {
+            card.classList.remove('dimmed');
+        }
+        
+        // Jos time-btn klikattu, deselektoi slider
+        if (card.classList.contains('time-btn')) {
+            const slider = document.getElementById('time-slider');
+            if (slider) {
+                slider.classList.remove('selected');
+                if (slider.classList.contains('partner-anchor')) {
+                    slider.classList.add('dimmed');
+                }
+            }
+        }
+        
+        // Värinä
+        if (navigator.vibrate) navigator.vibrate(10);
+    }, true); // Capture phase
+    
+    // Checkboxien käsittely
+    document.addEventListener('change', (e) => {
+        if (e.target.type === 'checkbox') {
+            const label = e.target.closest('label');
+            if (!label) return;
+            
+            if (e.target.checked) {
+                // Jos on ankkuroitu JA klikataan → poista dimmed
+                if (label.classList.contains('partner-anchor')) {
+                    label.classList.remove('dimmed');
+                }
+            } else {
+                // Jos oli ankkuroitu MUTTA poistetaan checkmark → dimmed
+                if (label.classList.contains('partner-anchor')) {
+                    label.classList.add('dimmed');
+                }
+            }
+        }
+    });
+}
+
+// --- EMERGENCY RESET ---
+function emergencyReset() {
+    if (!confirm('⚠️ VAROITUS: Tämä poistaa KAIKEN datan (historia, sessiot).\n\nJatketaanko?')) {
+        return;
+    }
+    
+    if (!confirm('🚨 VIIMEINEN VAROITUS!\n\nTätä EI VOI perua. Kaikki data poistetaan pysyvästi.\n\nOletko VARMA?')) {
+        return;
+    }
+    
+    // Tyhjennä localStorage
+    localStorage.clear();
+    
+    // Pysäytä Firebase-kuuntelut
+    stopListening();
+    
+    // Nollaa state
+    Object.keys(state).forEach(key => {
+        if (key !== 'theme') {
+            state[key] = null;
+        }
+    });
+    
+    // Redirect juureen
+    if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 100]);
+    notify('🚨 Kaikki data poistettu!');
+    
+    setTimeout(() => {
+        window.location.href = window.location.origin + window.location.pathname;
+    }, 1000);
 }
 
 // --- TOIMINNOT ---
@@ -442,6 +559,9 @@ async function joinSession(sessionId) {
         showBanner(`💡 Lomake esitäytetty kumppanisi ehdotuksella (kierros ${partnerData.round}). Voit muokata vapaasti tai hyväksyä sellaisenaan.`);
         
         addQuickAcceptButton();
+        
+        // UUSI: Näytä sticky action bar
+        showStickyActionBar();
     }
     
     showScreen('selection');
@@ -1036,6 +1156,72 @@ window.deleteHistorySession = deleteHistorySession;
 window.viewHistoryDetails = viewHistoryDetails;
 window.acceptNotifications = acceptNotifications;
 
+// --- STICKY ACTION BAR ---
+function showStickyActionBar() {
+    const bar = document.getElementById('sticky-action-bar');
+    if (!bar) return;
+    
+    bar.style.display = 'flex';
+    
+    // Hyväksy-nappi
+    const acceptBtn = document.getElementById('sticky-accept-btn');
+    if (acceptBtn) {
+        acceptBtn.onclick = () => {
+            if (navigator.vibrate) navigator.vibrate(50);
+            quickAccept();
+        };
+    }
+    
+    // Muokkaa-nappi (smooth scroll lomakkeen alkuun)
+    const modifyBtn = document.getElementById('sticky-modify-btn');
+    if (modifyBtn) {
+        modifyBtn.onclick = () => {
+            if (navigator.vibrate) navigator.vibrate(10);
+            
+            // Piilota bar hetkeksi
+            bar.classList.add('hidden');
+            
+            // Scroll lomakkeen alkuun
+            setTimeout(() => {
+                const formStart = document.getElementById('negotiation-form');
+                if (formStart) {
+                    formStart.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'start' 
+                    });
+                }
+                
+                // Näytä bar takaisin 2s kuluttua
+                setTimeout(() => {
+                    bar.classList.remove('hidden');
+                }, 2000);
+            }, 100);
+        };
+    }
+    
+    // Piilota kun scrollataan alas tarpeeksi (valinnainen)
+    let lastScrollTop = 0;
+    window.addEventListener('scroll', () => {
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        
+        if (scrollTop > 300 && scrollTop > lastScrollTop) {
+            // Scrollataan alas
+            bar.classList.add('hidden');
+        } else if (scrollTop < 200) {
+            // Scrollataan ylös tai lähellä alkua
+            bar.classList.remove('hidden');
+        }
+        
+        lastScrollTop = scrollTop;
+    });
+}
+
+// --- GOLDEN ANCHORS ---
+        console.error('Emergency reset error:', error);
+        notify('❌ Resetointi epäonnistui');
+    }
+}
+
 // --- ALUSTUS ---
 document.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -1187,11 +1373,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Help modal
     const helpBtn = document.getElementById('help-btn');
+    const globalHelpBtn = document.getElementById('global-help-btn');
     const helpModal = document.getElementById('help-modal');
     const modalClose = document.getElementById('modal-close');
     
+    // Help button (header)
     if (helpBtn && helpModal) {
         helpBtn.onclick = () => {
+            if (navigator.vibrate) navigator.vibrate(10);
+            helpModal.classList.add('active');
+        };
+    }
+    
+    // Global help button (fixed)
+    if (globalHelpBtn && helpModal) {
+        globalHelpBtn.onclick = () => {
             if (navigator.vibrate) navigator.vibrate(10);
             helpModal.classList.add('active');
         };
@@ -1208,24 +1404,16 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         };
     }
-
-    // Korttien klikkaus
-    document.addEventListener('click', (e) => {
-        const card = e.target.closest('.mood-card, .time-btn');
-        if (card) {
-            const parent = card.parentElement;
-            parent.querySelectorAll('.mood-card, .time-btn').forEach(c => c.classList.remove('selected'));
-            card.classList.add('selected');
-            if (navigator.vibrate) navigator.vibrate(10);
-            
-            // Jos time-btn klikattu, deselektoi slider
-            if (card.classList.contains('time-btn')) {
-                const slider = document.getElementById('time-slider');
-                if (slider) slider.classList.remove('selected');
-            }
-        }
-    });
     
+    // Emergency Reset button
+    const emergencyBtn = document.getElementById('emergency-reset-btn');
+    if (emergencyBtn) {
+        emergencyBtn.onclick = () => {
+            if (navigator.vibrate) navigator.vibrate([10, 50, 10]);
+            emergencyReset();
+        };
+    }
+
     // Time slider logic
     const timeSlider = document.getElementById('time-slider');
     const timeDisplay = document.getElementById('time-val');
@@ -1290,6 +1478,25 @@ document.addEventListener('DOMContentLoaded', () => {
             if (navigator.vibrate) navigator.vibrate(10);
         };
     }
+    
+    // Emergency Reset
+    const emergencyResetBtn = document.getElementById('emergency-reset-btn');
+    if (emergencyResetBtn) {
+        emergencyResetBtn.onclick = emergencyReset;
+    }
+    
+    // Global Help Button
+    const globalHelpBtn = document.getElementById('global-help-btn');
+    const helpModal = document.getElementById('help-modal');
+    if (globalHelpBtn && helpModal) {
+        globalHelpBtn.onclick = () => {
+            if (navigator.vibrate) navigator.vibrate(10);
+            helpModal.classList.add('active');
+        };
+    }
+    
+    // Golden Anchors (apply handler)
+    applyGoldenAnchors();
     
     // Cleanup
     window.addEventListener('beforeunload', stopListening);
