@@ -1,0 +1,34 @@
+TEHTÄVÄ: Korjaa app.js - ReferenceError: applyGoldenAnchors is not defined
+
+Edellisessä versiossa applyGoldenAnchors() -kutsu jäi koodiin, mutta itse funktion määrittely katosi siivouksen yhteydessä. Korjaa koodi seuraavasti:
+
+
+
+
+
+Lisää tämä funktio takaisin koodiin (ennen event listenereitä):
+
+JavaScript
+
+function applyGoldenAnchors(details) {
+    if (!details) return;
+    Object.entries(details).forEach(([category, value]) => {
+        if (category === 'time' || category === 'timeDisplay') return;
+        const selector = `.mood-card[data-value="${value}"], .time-btn[data-value="${value}"]`;
+        document.querySelectorAll(selector).forEach(card => {
+            card.classList.add('partner-anchor');
+        });
+    });
+}
+
+
+
+
+
+
+Tarkista loppu: Varmista, että tiedoston lopussa on vain YKSI }); sulkemassa DOMContentLoaded-kuuntelijan.
+
+
+
+Toimita koko app.js tiedosto, jotta voin tallentaa sen yhtenäisenä.
+
