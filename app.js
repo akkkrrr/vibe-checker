@@ -52,7 +52,7 @@ function safeLocalStorageSet(key, value) {
    ================================================ */
 
 const firebaseConfig = {
-    apiKey: "AIzaSyByV-ExampleKey",
+    apiKey: "AIzaSyDc4Wz35pzGP-Udi1R4JtJWLtolQiRJzJo",
     authDomain: "vibe-checker-eight.firebaseapp.com",
     projectId: "vibe-checker-eight",
     storageBucket: "vibe-checker-eight.appspot.com",
