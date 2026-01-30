@@ -1,10 +1,12 @@
+/* sw.js */
 /**
  * VIBE CHECKER v2.0 - SERVICE WORKER
  * Offline support + caching
  */
 
-const CACHE_NAME = 'vibe-checker-v2.0.0';
-const RUNTIME_CACHE = 'vibe-checker-runtime';
+const VERSION = 'v2.3-phase2';
+const CACHE_NAME = `vibe-checker-${VERSION}`;
+const RUNTIME_CACHE = `vibe-checker-runtime-${VERSION}`;
 
 // Files to cache on install
 const STATIC_CACHE_URLS = [
@@ -25,7 +27,8 @@ self.addEventListener('install', (event) => {
     caches.open(CACHE_NAME)
       .then((cache) => {
         console.log('[SW] Caching static assets');
-        return cache.addAll(STATIC_CACHE_URLS);
+        const requests = STATIC_CACHE_URLS.map((url) => new Request(url, { cache: 'reload' }));
+        return cache.addAll(requests);
       })
       .then(() => self.skipWaiting())
   );
@@ -63,6 +66,34 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) {
     // Network only for external resources
     event.respondWith(fetch(request));
+    return;
+  }
+  
+  // Network-first for navigations (HTML) to avoid stuck old homepage
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put('/index.html', copy));
+          return response;
+        })
+        .catch(() => caches.match('/index.html'))
+    );
+    return;
+  }
+  
+  // Network-first for app shell JS (avoid HTML/JS version mismatch)
+  if (url.pathname === '/app.js') {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+          return response;
+        })
+        .catch(() => caches.match(request))
+    );
     return;
   }
   

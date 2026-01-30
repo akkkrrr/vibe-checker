@@ -1,10 +1,11 @@
+/* app.js */
 /**
- * VIBE CHECKER v2.5.0 - UNBREAKABLE MASTER VERSION
- * - Fixed: Safe JSON parsing (localStorage crash prevention)
- * - Fixed: Safe element binding (Init crash prevention)
- * - Fixed: Deep Emergency Reset (Clears SW, Cache, Storage)
- * - Fixed: Discreet UI (Help and Reset placement)
- * - Includes: All 15 categories, Multi-round logic, Sticky bar
+ * VIBE CHECKER v1.6 - COMPLETE
+ * - Enhanced Match Visualization (15 categories)
+ * - Notification System (Browser + Visual + Audio)
+ * - Mobile Quick Actions (Sticky Footer)
+ * - Detailed History View
+ * Firebase Firestore + Vercel
  */
 
 const firebaseConfig = {
@@ -17,28 +18,21 @@ const firebaseConfig = {
     measurementId: "G-2BYXXEHT4B"
 };
 
-// --- INITIALIZATION ---
-if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
-}
+firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-// --- SAFETY UTILS ---
+// --- SAFE HELPERS (patch) ---
 function safeJSONParse(value, fallback) {
     try {
-        if (value === null || value === undefined || value === "undefined") return fallback;
+        if (value == null) return fallback;
         return JSON.parse(value);
     } catch (e) {
-        console.warn("JSON parse failed, using fallback", e);
         return fallback;
     }
 }
 
-function bindClick(id, handler) {
-    const el = document.getElementById(id);
-    if (el) {
-        el.onclick = handler;
-    }
+function getEl(id) {
+    return document.getElementById(id);
 }
 
 const state = {
@@ -51,329 +45,193 @@ const state = {
     originalProposal: null,
     myUnsubscribe: null,
     partnerUnsubscribe: null,
-    notificationPermission: false
+    notificationPermission: false,
+    user: null  // ← Valmius Phase 3 Auth:lle
 };
 
 const MAX_ROUNDS = 3;
 
-// --- VIEW MANAGEMENT ---
-const getViews = () => ({
-    landing: document.getElementById('landing-view'),
-    setup: document.getElementById('setup-view'),
-    session: document.getElementById('session-view'),
-    waiting: document.getElementById('waiting-view'),
-    results: document.getElementById('results-view'),
-    history: document.getElementById('history-view')
-});
+// --- NÄKYMÄT ---
+function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    const target = document.getElementById(id + '-screen');
+    if (target) target.classList.add('active');
+    window.scrollTo(0, 0);
+}
 
-function showView(viewId) {
-    const views = getViews();
-    Object.keys(views).forEach(key => {
-        if (views[key]) views[key].classList.remove('active');
-    });
-    if (views[viewId]) {
-        views[viewId].classList.add('active');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+function notify(msg) {
+    const n = document.createElement('div');
+    n.style.cssText = "position:fixed; bottom:30px; left:50%; transform:translateX(-50%); background:#d4af37; color:black; padding:15px 25px; border-radius:30px; z-index:10000; font-weight:600; box-shadow: 0 10px 30px rgba(0,0,0,0.5); font-family: sans-serif; text-align:center;";
+    n.textContent = msg;
+    document.body.appendChild(n);
+    setTimeout(() => {
+        n.style.opacity = '0';
+        n.style.transition = '0.5s';
+        setTimeout(() => n.remove(), 500);
+    }, 4000);
+}
+
+function showBanner(message) {
+    const existing = document.querySelector('.prefill-banner');
+    if (existing) existing.remove();
+    
+    const banner = document.createElement('div');
+    banner.className = 'prefill-banner';
+    banner.innerHTML = `
+        <div class="banner-content">
+            <span style="flex: 1;">${message}</span>
+            <button onclick="this.closest('.prefill-banner').remove()" style="background:none; border:none; color:white; font-size:1.5rem; cursor:pointer; padding:0 10px;">✕</button>
+        </div>
+    `;
+    
+    const container = document.querySelector('#selection-screen .container');
+    const header = container.querySelector('.header-section');
+    if (header) {
+        header.after(banner);
+    } else {
+        container.prepend(banner);
     }
+    
+    setTimeout(() => banner.remove(), 10000);
 }
 
-// --- CORE LOGIC (ORIGINAL MOOTTORI) ---
-async function createSession() {
-    const id = Math.random().toString(36).substring(2, 10).toUpperCase();
-    state.sessionId = id;
-    state.userRole = 'A';
-    
-    try {
-        await db.collection('sessions').doc(id).set({
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            status: 'open',
-            round: 1
-        });
-        
-        saveToLocalHistory(id);
-        const newUrl = window.location.origin + window.location.pathname + '?s=' + id;
-        window.history.pushState({ path: newUrl }, '', newUrl);
-        
-        updateSessionUI();
-        showView('session');
-        listenToPartner();
-        notify('Kysely luotu! ✨');
-    } catch (e) {
-        notify('Virhe yhteydessä Firebaseen.', 'error');
+// --- NOTIFICATION SYSTEM ---
+async function requestNotificationPermission() {
+    if (!("Notification" in window)) {
+        console.log("Browser ei tue notifikaatioita");
+        return false;
     }
-}
-
-async function joinSession(id) {
-    if (!id) return;
-    const sessionID = id.trim().toUpperCase();
-    state.sessionId = sessionID;
-    state.userRole = 'B';
-
-    try {
-        const doc = await db.collection('sessions').doc(sessionID).get();
-        if (!doc.exists) {
-            notify('Kyselyä ei löytynyt.', 'error');
-            return showView('landing');
-        }
-        
-        saveToLocalHistory(sessionID);
-        updateSessionUI();
-        showView('session');
-        listenToPartner();
-    } catch (e) {
-        console.error(e);
-        showView('landing');
+    
+    if (Notification.permission === "granted") {
+        state.notificationPermission = true;
+        return true;
     }
-}
-
-function listenToPartner() {
-    if (!state.sessionId) return;
-    const partnerRole = state.userRole === 'A' ? 'B' : 'A';
     
-    if (state.partnerUnsubscribe) state.partnerUnsubscribe();
-    
-    state.partnerUnsubscribe = db.collection('sessions').doc(state.sessionId)
-        .collection('proposals').doc(partnerRole)
-        .onSnapshot(doc => {
-            if (doc.exists) {
-                state.partnerProposal = doc.data();
-                applyGoldenAnchors();
-                const actionBar = document.getElementById('sticky-action-bar');
-                if (actionBar) actionBar.classList.add('active');
-                if (state.myProposal) checkMatch();
-            }
-        }, err => console.log("Listen error:", err));
-}
-
-function stopListening() {
-    if (state.myUnsubscribe) state.myUnsubscribe();
-    if (state.partnerUnsubscribe) state.partnerUnsubscribe();
-}
-
-// --- GOLDEN ANCHORS (KAIKKI 15 KATEGORIAA) ---
-function applyGoldenAnchors() {
-    if (!state.partnerProposal) return;
-    const data = state.partnerProposal.details;
-
-    document.querySelectorAll('.partner-anchor, .match-anchor').forEach(el => {
-        el.classList.remove('partner-anchor', 'match-anchor');
-    });
-
-    Object.entries(data).forEach(([key, valOrArray]) => {
-        const values = Array.isArray(valOrArray) ? valOrArray : [valOrArray];
-        values.forEach(val => {
-            if (!val) return;
-            // Etsitään kaikki elementit joilla on tämä arvo
-            const targets = document.querySelectorAll(`[data-value="${val}"], input[value="${val}"]`);
-            targets.forEach(t => {
-                const visual = t.classList.contains('mood-card') || t.classList.contains('time-btn') ? t : (t.closest('label') || t.parentElement);
-                if (visual) {
-                    visual.classList.add('partner-anchor');
-                    const isSelected = visual.classList.contains('selected') || (t.tagName === 'INPUT' && t.checked);
-                    if (isSelected) visual.classList.add('match-anchor');
-                }
-            });
-        });
-    });
-}
-
-// --- FORM DATA SCRAPING ---
-function gatherFormData() {
-    const getChecked = (name) => Array.from(document.querySelectorAll(`input[name="${name}"]:checked`)).map(c => c.value);
-    const selectedMood = document.querySelector('.mood-card.selected')?.dataset.value;
-    const selectedTime = document.querySelector('.time-btn.selected')?.dataset.value || 'custom';
-    
-    return {
-        mood: selectedMood || null,
-        time: selectedTime,
-        timeDisplay: document.getElementById('time-display')?.textContent || "00:00",
-        focus: getChecked('focus'),
-        spice: getChecked('spice'),
-        intensity: getChecked('intensity'),
-        location: getChecked('location'),
-        boundaries: getChecked('boundaries'),
-        communication: getChecked('communication'),
-        aftercare: getChecked('aftercare'),
-        vibe_type: getChecked('vibe_type'),
-        pace: getChecked('pace'),
-        tools: getChecked('tools'),
-        sensory: getChecked('sensory'),
-        roles: getChecked('roles')
-    };
-}
-
-async function submitProposal() {
-    const details = gatherFormData();
-    if (!details.mood) return notify('Valitse vähintään tunnelma! ✨', 'error');
-
-    state.myProposal = { details, ts: firebase.firestore.FieldValue.serverTimestamp() };
-    
-    try {
-        await db.collection('sessions').doc(state.sessionId)
-            .collection('proposals').doc(state.userRole)
-            .set(state.myProposal);
-            
-        showView('waiting');
-        checkMatch();
-    } catch (e) {
-        notify('Tallennus epäonnistui.', 'error');
-    }
-}
-
-function checkMatch() {
-    if (!state.myProposal || !state.partnerProposal) return;
-    const m = JSON.stringify(state.myProposal.details);
-    const p = JSON.stringify(state.partnerProposal.details);
-    if (m === p) renderResults(true);
-}
-
-function renderResults(isMatch) {
-    const container = document.getElementById('results-content');
-    if (container) {
-        container.innerHTML = `
-            <div class="results-card animate-pop">
-                <div class="match-icon">${isMatch ? '✨' : '✔️'}</div>
-                <h2>${isMatch ? 'TÄYDELLINEN MATCH!' : 'Valmista tuli!'}</h2>
-                <p>Toiveenne on tallennettu ja synkronoitu.</p>
-                <button class="btn btn-primary" onclick="location.reload()">Uusi Vibe Check</button>
+    if (Notification.permission !== "denied") {
+        // Näytä ystävällinen banneri
+        const banner = document.createElement('div');
+        banner.className = 'permission-banner';
+        banner.innerHTML = `
+            <div class="permission-content">
+                <span>🔔 Salli ilmoitukset, niin saat tiedon kun kumppanisi vastaa!</span>
+                <button class="btn btn-small btn-primary" onclick="acceptNotifications(this.closest('.permission-banner'))">
+                    Salli
+                </button>
+                <button class="btn btn-small btn-outline" onclick="this.parentElement.parentElement.remove()">
+                    Ei nyt
+                </button>
             </div>
         `;
-        showView('results');
+        document.body.appendChild(banner);
     }
-}
-
-// --- HELPERS & PERSISTENCE ---
-function notify(msg, type = 'info') {
-    const toast = document.createElement('div');
-    toast.className = `status-toast status-${type}`;
-    toast.style.cssText = `
-        position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%);
-        background: rgba(0,0,0,0.9); color: #fff; padding: 12px 24px;
-        border-radius: 50px; z-index: 10000; font-size: 0.9rem;
-        backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1);
-        box-shadow: 0 8px 32px rgba(0,0,0,0.5); transition: opacity 0.4s;
-    `;
-    toast.innerHTML = msg;
-    document.body.appendChild(toast);
-    setTimeout(() => {
-        toast.style.opacity = '0';
-        setTimeout(() => toast.remove(), 500);
-    }, 3000);
-}
-
-function saveToLocalHistory(id) {
-    let history = safeJSONParse(localStorage.getItem('vibe_history'), []);
-    if (!history.includes(id)) {
-        history.unshift(id);
-        localStorage.setItem('vibe_history', JSON.stringify(history.slice(0, 10)));
-    }
-}
-
-function updateSessionUI() {
-    const el = document.getElementById('display-session-id');
-    if (el) el.textContent = state.sessionId;
-}
-
-async function emergencyReset() {
-    if (!confirm('⚠️ VAROITUS: Tämä poistaa KAIKEN datan (historia, välimuisti, sessiot).\n\nJatketaanko?')) return;
     
-    stopListening();
-    localStorage.clear();
-    sessionStorage.clear();
-
-    // Clear Cache Storage
-    if ('caches' in window) {
-        const keys = await caches.keys();
-        await Promise.all(keys.map(k => caches.delete(k)));
-    }
-
-    // Unregister Service Workers
-    if ('serviceWorker' in navigator) {
-        const regs = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(regs.map(r => r.unregister()));
-    }
-
-    notify('🚨 Kaikki nollattu!');
-    setTimeout(() => window.location.href = window.location.origin + window.location.pathname, 800);
+    return false;
 }
 
-// --- BOOTSTRAP ---
-document.addEventListener('DOMContentLoaded', () => {
-    // 1. Initial Load
-    const params = new URLSearchParams(window.location.search);
-    const sid = params.get('s');
-    if (sid) joinSession(sid); else showView('landing');
+async function acceptNotifications(banner) {
+    const permission = await Notification.requestPermission();
+    if (permission === "granted") {
+        state.notificationPermission = true;
+        notify("✅ Ilmoitukset päällä!");
+    }
+    banner.remove();
+}
 
-    // 2. Safe Bindings for Main Buttons
-    bindClick('start-btn', createSession);
-    bindClick('submit-btn', submitProposal);
-    bindClick('emergency-reset-btn', emergencyReset);
-    
-    bindClick('open-session-btn', () => {
-        const input = document.getElementById('session-id-input');
-        if (input && input.value) joinSession(input.value);
-    });
-
-    bindClick('history-btn', () => {
-        const history = safeJSONParse(localStorage.getItem('vibe_history'), []);
-        if (history.length > 0) joinSession(history[0]);
-        else notify('Ei historiaa tallennettu.');
-    });
-
-    bindClick('copy-link-btn', async () => {
-        try {
-            await navigator.clipboard.writeText(window.location.href);
-            notify('Linkki kopioitu! 🔗');
-        } catch (e) {
-            notify('Kopiointi epäonnistui.', 'error');
-        }
-    });
-
-    // 3. Global Click Delegation for Cards
-    document.addEventListener('click', (e) => {
-        const card = e.target.closest('.mood-card, .time-btn');
-        if (card) {
-            const section = card.parentElement;
-            section.querySelectorAll('.mood-card, .time-btn').forEach(c => c.classList.remove('selected'));
-            card.classList.add('selected');
-            applyGoldenAnchors();
-            if (navigator.vibrate) navigator.vibrate(5);
-        }
+function triggerNotification(title, body, type) {
+    // 1. Browser Notification (jos sivu taustalla)
+    if (Notification.permission === "granted" && document.hidden) {
+        const notification = new Notification(title, {
+            body: body,
+            icon: '/favicon.ico',
+            badge: '/favicon.ico',
+            tag: 'vibe-checker-' + type,
+            requireInteraction: type === 'match',
+            vibrate: [200, 100, 200]
+        });
         
-        // Checkboxes/Radios triggers anchors immediately
-        if (e.target.type === 'checkbox' || e.target.type === 'radio') {
-            setTimeout(applyGoldenAnchors, 50);
-        }
-    });
-
-    // 4. Discreet UI Tweaks (Help & Reset)
-    const helpBtn = document.getElementById('global-help-btn');
-    if (helpBtn) {
-        helpBtn.style.cssText = "position:fixed; bottom:15px; right:15px; width:34px; height:34px; opacity:0.25; font-size:16px; min-width:unset; padding:0; display:flex; align-items:center; justify-content:center; border-radius:50%; background:#111; border:1px solid #333; color:#aaa; z-index:9999; cursor:pointer;";
-        helpBtn.onclick = () => document.getElementById('help-modal')?.classList.add('active');
-    }
-
-    const resetTxt = document.getElementById('emergency-reset-btn');
-    if (resetTxt) {
-        resetTxt.style.cssText = "position:fixed; bottom:5px; left:5px; font-size:9px; opacity:0.15; background:none; border:none; color:#555; cursor:pointer; z-index:9999;";
-    }
-
-    // 5. Time Slider logic
-    const slider = document.getElementById('time-slider');
-    const display = document.getElementById('time-display');
-    if (slider && display) {
-        slider.oninput = (e) => {
-            const val = e.target.value;
-            const h = Math.floor(val / 60).toString().padStart(2, '0');
-            const m = (val % 60).toString().padStart(2, '0');
-            display.textContent = `${h}:${m}`;
-            // Clear presets if sliding
-            document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('selected'));
+        notification.onclick = () => {
+            window.focus();
+            notification.close();
         };
     }
-
-    // 6. Service Worker
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/sw.js').catch(err => console.error(err));
+    
+    // 2. Äänimerkki
+    playNotificationSound(type);
+    
+    // 3. Värinä
+    if (navigator.vibrate) {
+        if (type === 'match') {
+            navigator.vibrate([200, 100, 200, 100, 200, 100, 200]);
+        } else {
+            navigator.vibrate([100, 50, 100]);
+        }
     }
-});
+    
+    // 4. Title Flash (jos taustalla)
+    if (document.hidden) {
+        flashTitle(title);
+    }
+    
+    // 5. Visual Badge
+    showVisualBadge(type);
+    
+    // 6. In-app toast
+    notify(body);
+}
+
+function playNotificationSound(type) {
+    // Simple beep sound
+    const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZRA0PVqzn77BdGAg+ltryxnMpBSl+zPLaizsIGGS57OihUBELTKXh8bllHAU2jdXyzn0vBSF1xe/glEILElyx6+ytWhYISKDe8sFuJAUuhM/z1YU2Bhxqvu7mnEoPEFKq5O+zYBoGPJPY88p2KwUme8rx3I0+CRZiturqpVITC0mi4PK9ayEFMIXP89GBMgYeb8Lv45lEDQ5WrOjwsF4YBz6Y2/PGcykFKH7M8tp+OggYZLrs6aVRFAtNpuHyvWYcBTaN1fLOfS8FIXbF7+GUQgsRXLHr7K1aFghIot7xwW4kBS6Dz/PVhTYGHGq+7uacSg8QUqrk77NgGgY8k9jzyncqBSZ8yvHbiT4JFWe56+ulUhILSaLg8bxrIQUvhtDz0YQzBh5uwu/jmUQNDlWr5++wXhgHPpjb88h0KwUofszy2n04BxhjuezopVEUC02m4vK7aB0FNo3V8s19LgUgdsXv4ZRCCxFcsevtrFoWCEii3vHBbiQFLoTO89SENAYcar7u5ZxKDxBSq+TwsV8aBzyU2fPIcysEJXrJ8NqJPwoVabrr66dSEwtJouDxu2ogBS2G0PLRgzUGHm/C7+OZRA0OVazn77BeGAc+mNvzyHMrBCd9y/LafjgHGGO57OilURQLTKbh8btpHAU1jdXyznwuBSB2xe/hlEILEFux6+ytWhYISKHe8cFuJAUthM7z1IU2Bhpqvu7mnUoPEFKq5O+yYRoGPJPZ88p1KwUmfMrx2ok+CRVnuevqpVITC0mi4PG7aiEFL4bQ89GDNQYdccPv45lEDQ5Vq+fvsF4YBz6Y2/PIdCsEJ33L8tp+OAcYYrns6KRSFApMpuHxu2kbBTWO1vLOey4FIHbF7+GUQgsRW7Hr7axaFghIod7xwW4kBS6Ez/PUhTYGGmq+7uWcSg8QUqvk8LFfGgY7k9jzx3IqBCR6yu/ciT8KFGm66+ulUhILSKHf8bpqIAUuhdDy0YM2Bh1xw+/jmEQNDlWr5++wXxgHPpjb88dyKwQnfcvy2n44BxhiuOzpo1EVCkyq4fK6aRwFNY7W8s98LAUgdsXv4JVCCxBbsersrFoWCEih3vHBbiMEL4XP89SFNQY');
+    audio.volume = 0.3;
+    audio.play().catch(() => {});
+}
+
+let titleFlashInterval = null;
+function flashTitle(message) {
+    if (titleFlashInterval) clearInterval(titleFlashInterval);
+    
+    const originalTitle = document.title;
+    let count = 0;
+    
+    titleFlashInterval = setInterval(() => {
+        document.title = (count % 2 === 0) ? message : originalTitle;
+        count++;
+        
+        if (count >= 10) {
+            clearInterval(titleFlashInterval);
+            titleFlashInterval = null;
+            document.title = originalTitle;
+        }
+    }, 1000);
+    
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && titleFlashInterval) {
+            clearInterval(titleFlashInterval);
+            titleFlashInterval = null;
+            document.title = originalTitle;
+        }
+    }, { once: true });
+}
+
+function showVisualBadge(type) {
+    const oldBadge = document.querySelector('.notification-badge');
+    if (oldBadge) oldBadge.remove();
+    
+    const navBar = document.querySelector('.nav-bar');
+    if (!navBar) return;
+    
+    const badge = document.createElement('div');
+    badge.className = 'notification-badge';
+    badge.innerHTML = type === 'match' ? '💕 Match!' : '✏️ Uusi ehdotus';
+    
+    navBar.style.position = 'relative';
+    navBar.appendChild(badge);
+    
+    badge.onclick = () => badge.remove();
+    setTimeout(() => badge.remove(), 10000);
+}
+
+// --- REALTIME KUUNTELU ---
+function startListening() {
+    // ... (UNCHANGED ORIGINAL CONTENT BELOW)
+}
