@@ -2,7 +2,7 @@
 <html lang="fi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Vibe Checker ✨</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -10,8 +10,8 @@
     <link rel="stylesheet" href="style.css">
     <link rel="icon" href="favicon.ico" type="image/x-icon">
     
-    <!-- PWA Meta Tags -->
-    <link rel="manifest" href="/manifest.json">
+    <!-- PWA Meta Tags (Disabled for v2.6 - Compatibility) -->
+    <!-- <link rel="manifest" href="/manifest.json"> -->
     <meta name="theme-color" content="#d4af37">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -62,6 +62,10 @@
                 <p class="session-info">Sessio: <span id="session-id-display"></span></p>
                 <div class="session-actions">
                     <button class="btn btn-icon-only" id="help-btn" title="Ohjeet">❓</button>
+                    <button class="btn btn-primary btn-small" id="check-updates-btn" style="display: none;" title="Tarkista kumppanin vastaus">
+                        <span class="btn-icon">🔄</span>
+                        Tarkista päivitykset
+                    </button>
                     <button class="btn btn-secondary btn-small" id="copy-link-btn">
                         <span class="btn-icon">🔗</span>
                         Kopioi linkki
@@ -751,7 +755,7 @@
     <!-- Professional Footer -->
     <footer class="app-footer">
         <div class="footer-content">
-            <span class="footer-copyright">Copyright © 2026 Vibe Checker | v2.3-phase2</span>
+            <span class="footer-copyright">Copyright © 2026 Vibe Checker | v2.6-stable</span>
             <div class="footer-status">
                 <span class="status-dot status-online"></span>
                 <span class="status-text">Systems Operational</span>
