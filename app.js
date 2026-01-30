@@ -1,7 +1,6 @@
 /**
  * ================================================
- * VIBE CHECKER v2.5.1-FINAL-FIX
- * Synkronoitu index.html:n kanssa
+ * VIBE CHECKER v2.5.1-COMPLETE-STABLE
  * ================================================
  */
 
@@ -21,18 +20,21 @@ if (!firebase.apps.length) {
 }
 const db = firebase.firestore();
 
+// --- STATE ---
 let state = {
     sessionId: null,
     userRole: null,
     mood: null,
     focus: null,
-    intensity: 5
+    intensity: 5,
+    partnerData: null
 };
 
 let isSubmitting = false;
+let isCreatingSession = false;
 let unsubscribe = null;
 
-// --- APUFUNKTIOT ---
+// --- APUFUNKTIOT (SAFETY HELPERS) ---
 function notify(msg, type = 'info') {
     const container = document.getElementById('notification-container');
     if (container) {
@@ -40,9 +42,7 @@ function notify(msg, type = 'info') {
         el.className = `notification ${type}`;
         el.textContent = msg;
         container.appendChild(el);
-        
         if (navigator.vibrate) navigator.vibrate(50);
-        
         setTimeout(() => {
             el.style.opacity = '0';
             setTimeout(() => el.remove(), 500);
@@ -53,48 +53,56 @@ function notify(msg, type = 'info') {
 function showScreen(screenId) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     const target = document.getElementById(screenId);
-    if (target) target.classList.add('active');
-    window.scrollTo(0, 0);
+    if (target) {
+        target.classList.add('active');
+        window.scrollTo(0, 0);
+    }
 }
 
-// --- CORE LOGIIKKA ---
+// --- FIREBASE LOGIIKKA ---
 async function createSession() {
-    if (isSubmitting) return;
-    isSubmitting = true;
+    if (isCreatingSession) return;
+    isCreatingSession = true;
     
     try {
         const docRef = await db.collection("sessions").add({
             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            status: 'open'
+            status: 'open',
+            lastUpdate: firebase.firestore.FieldValue.serverTimestamp()
         });
         
         state.sessionId = docRef.id;
         state.userRole = 'partner_a';
         
-        // Päivitetään linkki ja ID näkyviin
-        const link = `${window.location.origin}${window.location.pathname}?session=${state.sessionId}`;
-        const input = document.getElementById('share-link-input');
-        if (input) input.value = link;
-        
-        const display = document.getElementById('session-id-display');
-        if (display) display.textContent = state.sessionId;
-
+        updateUIForSession();
         showScreen('share-screen');
         notify('Istunto luotu!', 'success');
         startListening(state.sessionId);
     } catch (e) {
         console.error(e);
-        notify('Tietokantavirhe', 'error');
+        notify('Yhteysvirhe tietokantaan', 'error');
     } finally {
-        isSubmitting = false;
+        isCreatingSession = false;
     }
+}
+
+function updateUIForSession() {
+    const link = `${window.location.origin}${window.location.pathname}?session=${state.sessionId}`;
+    const input = document.getElementById('share-link-input');
+    if (input) input.value = link;
+    
+    const display = document.getElementById('session-id-display');
+    if (display) display.textContent = state.sessionId;
 }
 
 function startListening(id) {
     if (unsubscribe) unsubscribe();
     unsubscribe = db.collection("sessions").doc(id).onSnapshot(doc => {
         if (doc.exists()) {
-            console.log("Päivitys saatu:", doc.data());
+            const data = doc.data();
+            const partnerRole = state.userRole === 'partner_a' ? 'partner_b' : 'partner_a';
+            state.partnerData = data[partnerRole] || null;
+            console.log("Päivitys Firebasesta", data);
         }
     });
 }
@@ -106,7 +114,7 @@ async function submitSelection() {
     const selection = {
         mood: state.mood || 'ei valittu',
         focus: state.focus || 'ei valittu',
-        intensity: state.intensity || 5,
+        intensity: parseInt(state.intensity) || 5,
         timestamp: new Date().toISOString()
     };
 
@@ -118,15 +126,16 @@ async function submitSelection() {
 
         notify('Valinnat lähetetty!', 'success');
     } catch (e) {
-        notify('Virhe tallennuksessa', 'error');
+        console.error(e);
+        notify('Lähetys epäonnistui', 'error');
     } finally {
         isSubmitting = false;
     }
 }
 
-// --- KÄYNNISTYS ---
-function initApp() {
-    console.log("🚀 Vibe Checker käynnistyy...");
+// --- INITIALIZATION ---
+function init() {
+    console.log("🚀 Vibe Checker v2.5.1 Käynnistyy...");
 
     const params = new URLSearchParams(window.location.search);
     const sessionParam = params.get('session');
@@ -136,20 +145,16 @@ function initApp() {
         state.userRole = 'partner_b';
         showScreen('input-screen');
         startListening(sessionParam);
-        notify('Liitytty istuntoon!', 'success');
+        notify('Tervetuloa mukaan!', 'success');
     }
 
-    // NAPPIEN BINDING (Nimet korjattu index.html:n mukaan)
-    
-    // Aloita-nappi
+    // Nappien sidonnat (ID:t tarkistettu index.html:stä)
     const createBtn = document.getElementById('create-session-btn');
     if (createBtn) createBtn.onclick = createSession;
 
-    // Lähetä-nappi
     const submitBtn = document.getElementById('submit-selection-btn');
     if (submitBtn) submitBtn.onclick = submitSelection;
 
-    // Kopioi-nappi
     const copyBtn = document.getElementById('copy-link-btn');
     if (copyBtn) {
         copyBtn.onclick = () => {
@@ -157,7 +162,7 @@ function initApp() {
             if (input) {
                 input.select();
                 document.execCommand('copy');
-                notify('Linkki kopioitu!', 'success');
+                notify('Kopioitu leikepöydälle!', 'success');
             }
         };
     }
@@ -171,7 +176,26 @@ function initApp() {
         };
     });
 
-    // Ohje-nappi
+    // Fokus-valinta (Lisätty takaisin)
+    document.querySelectorAll('.focus-btn').forEach(btn => {
+        btn.onclick = () => {
+            state.focus = btn.dataset.focus;
+            document.querySelectorAll('.focus-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+        };
+    });
+
+    // Intensiteetti-slider
+    const slider = document.getElementById('intensity-slider');
+    const valDisplay = document.getElementById('intensity-value');
+    if (slider) {
+        slider.oninput = (e) => {
+            state.intensity = e.target.value;
+            if (valDisplay) valDisplay.textContent = e.target.value;
+        };
+    }
+
+    // Ohje-modal
     const helpBtn = document.getElementById('global-help-btn');
     if (helpBtn) {
         helpBtn.onclick = () => {
@@ -179,8 +203,15 @@ function initApp() {
             if (modal) modal.classList.add('active');
         };
     }
+    
+    const closeHelp = document.querySelector('.close-modal');
+    if (closeHelp) {
+        closeHelp.onclick = () => {
+            document.getElementById('help-modal').classList.remove('active');
+        };
+    }
 
-    // Reset-nappi
+    // Resetointi
     const resetBtn = document.getElementById('emergency-reset-btn');
     if (resetBtn) {
         resetBtn.onclick = () => {
@@ -192,9 +223,16 @@ function initApp() {
     }
 }
 
-// Varmistetaan lataus
+// Käynnistyslukko
 if (document.readyState === 'complete') {
-    initApp();
+    init();
 } else {
-    window.addEventListener('load', initApp);
+    window.addEventListener('load', init);
+}
+
+// Service Worker (PWA)
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(() => {});
+    });
 }
