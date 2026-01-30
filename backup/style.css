@@ -1,10 +1,9 @@
 /* ========================================
-   VIBE CHECKER - COMPLETE STYLES v2.6
-   Phase 2.6: Mobile Safe Area Support
-   - iOS safe-area-inset support
-   - Footer doesn't cover buttons
+   VIBE CHECKER - COMPLETE STYLES v1.6
    - Enhanced Match Visualization
    - Notification System
+   - Mobile Quick Actions
+   - Detailed History View
    ======================================== */
 
 /* === ROOT VARIABLES === */
@@ -28,12 +27,6 @@
     --spacing-xl: 3rem;
     --font-heading: 'Cormorant Garamond', serif;
     --font-body: 'Montserrat', sans-serif;
-    
-    /* ← Phase 2.6: iOS Safe Area Support */
-    --safe-area-inset-top: env(safe-area-inset-top, 0px);
-    --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
-    --safe-area-inset-left: env(safe-area-inset-left, 0px);
-    --safe-area-inset-right: env(safe-area-inset-right, 0px);
 }
 
 [data-theme="light"] {
@@ -106,7 +99,7 @@ body::before {
     width: 100%;
     margin: 0 auto;
     padding: var(--spacing-md) 0;
-    padding-bottom: calc(var(--spacing-xl) + var(--safe-area-inset-bottom)); /* ← Phase 2.6: Safe area */
+    padding-bottom: var(--spacing-xl); /* ← Lisää tilaa alareunaan */
 }
 
 /* === THEME TOGGLE === */
@@ -680,7 +673,6 @@ body::before {
     flex-direction: column;
     gap: var(--spacing-sm);
     margin-top: var(--spacing-xl);
-    margin-bottom: calc(2rem + var(--safe-area-inset-bottom)); /* ← Phase 2.6: Safe area */
 }
 
 .submit-section .btn-large {
@@ -838,7 +830,6 @@ body::before {
     background: var(--midnight-light);
     border-top: 2px solid var(--glass-border);
     padding: 1rem;
-    padding-bottom: calc(1rem + var(--safe-area-inset-bottom)); /* ← Phase 2.6: Safe area */
     display: flex;
     gap: 0.75rem;
     z-index: 1000;
@@ -1250,14 +1241,11 @@ body::before {
     background: var(--midnight-light);
     border-top: 1px solid var(--glass-border);
     padding: 0.75rem 1rem;
-    padding-bottom: calc(0.75rem + var(--safe-area-inset-bottom)); /* ← Phase 2.6: Safe area */
-    padding-left: calc(1rem + var(--safe-area-inset-left));
-    padding-right: calc(1rem + var(--safe-area-inset-right));
     backdrop-filter: blur(20px);
-    z-index: 500;
+    z-index: 500; /* Alla mobile-quick-actions (1000) mutta päällä muun sisällön */
     font-size: 0.75rem;
     color: var(--text-muted);
-    pointer-events: auto;
+    pointer-events: auto; /* Varmista että footer on klikattavissa */
 }
 
 .footer-content {
@@ -1369,12 +1357,11 @@ body::before {
 /* === STICKY ACTION BAR === */
 .sticky-action-bar {
     position: sticky;
-    top: var(--safe-area-inset-top); /* ← Phase 2.6: Safe area */
+    top: 0;
     z-index: 900;
     background: var(--midnight-light);
     border-bottom: 2px solid var(--rose-gold);
     padding: 1rem;
-    padding-top: calc(1rem + var(--safe-area-inset-top)); /* ← Phase 2.6: Safe area */
     backdrop-filter: blur(20px);
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
     animation: slideDown 0.3s ease;

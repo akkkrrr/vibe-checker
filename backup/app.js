@@ -1,211 +1,11 @@
 /**
- * ================================================
- * VIBE CHECKER v2.6-stable
- * ================================================
- * Phase 2.6: VAKAUS & YHTEENSOPIVUUS
- * - onSnapshot → .get() (On-demand) ✅
- * - Service Worker disabled ✅
- * - Mobile safe areas ✅
- * - Vibe Story prep ✅
- * 
- * Previous: v2.5.1-robustness
- * - Safety Helpers ✅
- * - Race Condition Prevention ✅
- * 
- * Firebase Firestore + Vercel/Netlify
- * ================================================
+ * VIBE CHECKER v1.6 - COMPLETE
+ * - Enhanced Match Visualization (15 categories)
+ * - Notification System (Browser + Visual + Audio)
+ * - Mobile Quick Actions (Sticky Footer)
+ * - Detailed History View
+ * Firebase Firestore + Vercel
  */
-
-/* ================================================
-   SECTION 1: SAFETY HELPERS
-   ================================================ */
-
-/**
- * Turvallinen JSON-parsinta
- * @param {string} str - JSON string
- * @param {*} fallback - Default value
- * @returns {*} Parsed object or fallback
- */
-function safeJSONParse(str, fallback = null) {
-    if (!str || typeof str !== 'string') {
-        console.warn('⚠️ safeJSONParse: Invalid input');
-        return fallback;
-    }
-    try {
-        return JSON.parse(str);
-    } catch (e) {
-        console.error('❌ JSON parse failed:', e.message);
-        return fallback;
-    }
-}
-
-/**
- * Turvallinen objektin polun haku (lodash.get style)
- * @param {object} obj - Target object
- * @param {string} path - Path (e.g. "user.profile.name")
- * @param {*} fallback - Default value
- * @returns {*} Value or fallback
- */
-function safeGet(obj, path, fallback = null) {
-    if (!obj || typeof obj !== 'object') return fallback;
-    return path.split('.').reduce((o, p) => o?.[p], obj) ?? fallback;
-}
-
-/**
- * Turvallinen DOM event binding
- * @param {string} selector - CSS selector
- * @param {function} handler - Event handler
- * @param {string} event - Event type (default: 'click')
- * @param {Element} context - Context (default: document)
- * @returns {Element|null} Element or null
- */
-function bindClick(selector, handler, event = 'click', context = document) {
-    const el = context.querySelector(selector);
-    if (el) {
-        el.addEventListener(event, handler);
-        return el;
-    } else {
-        console.warn(`⚠️ Element not found: ${selector}`);
-        return null;
-    }
-}
-
-/**
- * Turvallinen querySelectorAll
- * @param {string} selector - CSS selector
- * @param {Element} context - Context
- * @returns {Array} Array of elements (empty if error)
- */
-function safeQueryAll(selector, context = document) {
-    try {
-        return Array.from(context.querySelectorAll(selector));
-    } catch (e) {
-        console.error(`❌ QueryAll failed for ${selector}:`, e.message);
-        return [];
-    }
-}
-
-/**
- * Turvallinen localStorage GET
- * @param {string} key - Key
- * @param {*} fallback - Default value
- * @returns {*} Value or fallback
- */
-function safeLocalStorageGet(key, fallback = null) {
-    try {
-        const value = localStorage.getItem(key);
-        if (!value) return fallback;
-        
-        if (value.startsWith('{') || value.startsWith('[')) {
-            return safeJSONParse(value, fallback);
-        }
-        return value;
-    } catch (e) {
-        console.error(`❌ localStorage.getItem("${key}"):`, e.message);
-        return fallback;
-    }
-}
-
-/**
- * Turvallinen localStorage SET
- * @param {string} key - Key
- * @param {*} value - Value (object or primitive)
- * @returns {boolean} Success
- */
-function safeLocalStorageSet(key, value) {
-    try {
-        const toStore = typeof value === 'object' ? JSON.stringify(value) : String(value);
-        localStorage.setItem(key, toStore);
-        return true;
-    } catch (e) {
-        console.error(`❌ localStorage.setItem("${key}"):`, e.message);
-        
-        if (e.name === 'QuotaExceededError') {
-            console.warn('⚠️ Quota exceeded, clearing old data...');
-            try {
-                localStorage.removeItem('vibe_history');
-                localStorage.setItem(key, toStore);
-                return true;
-            } catch (e2) {
-                console.error('❌ Still failed after cleanup');
-            }
-        }
-        return false;
-    }
-}
-
-/**
- * Turvallinen getElementById
- * @param {string} id - Element ID
- * @param {string} expectedTag - Expected tag (optional)
- * @returns {Element|null} Element or null
- */
-function safeGetElement(id, expectedTag = null) {
-    const el = document.getElementById(id);
-    
-    if (!el) {
-        console.warn(`⚠️ Element not found: #${id}`);
-        return null;
-    }
-    
-    if (expectedTag && el.tagName.toLowerCase() !== expectedTag.toLowerCase()) {
-        console.warn(`⚠️ #${id} is <${el.tagName}>, expected <${expectedTag}>`);
-        return null;
-    }
-    
-    return el;
-}
-
-/**
- * Error boundary wrapper
- * @param {function} fn - Function that might throw
- * @param {string} context - Context name for error messages
- * @returns {function} Wrapped function
- */
-function withErrorBoundary(fn, context = 'unknown') {
-    return function(...args) {
-        try {
-            return fn.apply(this, args);
-        } catch (e) {
-            console.error(`❌ Error in ${context}:`, e);
-            notify(`⚠️ Virhe: ${context} epäonnistui`);
-            return null;
-        }
-    };
-}
-
-/**
- * Virhesivu (fallback kun kaikki failaa)
- * @param {string} message - Error message
- */
-function showErrorScreen(message) {
-    document.body.innerHTML = `
-        <div style="display: flex; align-items: center; justify-content: center; 
-                    min-height: 100vh; padding: 2rem; text-align: center;
-                    background: #0b0b14; color: white; font-family: sans-serif;">
-            <div>
-                <h1 style="font-size: 3rem; margin-bottom: 1rem;">⚠️</h1>
-                <p style="font-size: 1.2rem; margin-bottom: 2rem; opacity: 0.8;">${message}</p>
-                <button onclick="location.reload()" 
-                        style="padding: 1rem 2rem; font-size: 1rem; 
-                               border-radius: 8px; cursor: pointer;
-                               background: linear-gradient(135deg, #d4af37, #b8941e);
-                               border: none; color: #0b0b14; font-weight: 600;">
-                    🔄 Päivitä sivu
-                </button>
-            </div>
-        </div>
-    `;
-}
-
-/* ================================================
-   END OF SECTION 1: SAFETY HELPERS
-   ================================================ */
-
-
-/* ================================================
-   SECTION 2: FIREBASE & STATE
-   ================================================ */
 
 const firebaseConfig = {
     apiKey: "AIzaSyDc4Wz35pzGP-Udi1R4JtJWLtolQiRJzJo",
@@ -224,47 +24,24 @@ const state = {
     sessionId: null,
     userRole: null,
     currentRound: 1,
-    theme: safeLocalStorageGet('theme', 'dark'), // ← FIXED: safe getter
+    theme: localStorage.getItem('theme') || 'dark',
     myProposal: null,
     partnerProposal: null,
     originalProposal: null,
     myUnsubscribe: null,
     partnerUnsubscribe: null,
     notificationPermission: false,
-    user: null,  // ← Phase 3 Auth prep
-    sessionPostponed: false, // ← Phase 2.5.3: Postpone support
-    postponeReason: null,
-    
-    // ← Phase 2.6: Vibe Story support
-    vibeStoryReady: false,
-    vibeStoryParams: {
-        mood: null,
-        focus: null,
-        intensity: null,
-        tempo: null,
-        activities: [],
-        atmosphere: [],
-        time: null,
-        timeDisplay: null
-    }
+    user: null  // ← Valmius Phase 3 Auth:lle
 };
 
 const MAX_ROUNDS = 3;
 
-// ← Phase 2.5.1: Race condition prevention
-let isSubmitting = false;
-let isCreatingSession = false;
-
 // --- NÄKYMÄT ---
 function showScreen(id) {
-    safeQueryAll('.screen').forEach(s => s.classList.remove('active')); // ← FIXED: safe query
-    const target = safeGetElement(id + '-screen'); // ← FIXED: safe getter
-    if (target) {
-        target.classList.add('active');
-    } else {
-        console.error(`❌ Screen not found: ${id}-screen`);
-    }
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    const target = document.getElementById(id + '-screen');
+    if (target) target.classList.add('active');
+    window.scrollTo(0, 0);
 }
 
 function notify(msg) {
@@ -440,78 +217,65 @@ function showVisualBadge(type) {
 }
 
 // --- REALTIME KUUNTELU ---
-/**
- * Phase 2.6: ON-DEMAND UPDATE CHECK
- * Replaces onSnapshot() with manual .get()
- * No persistent connections = No browser conflicts
- */
-async function checkForUpdates() {
-    if (!state.sessionId) {
-        console.warn('⚠️ No session ID for update check');
-        return;
-    }
+function startListening() {
+    stopListening();
     
     const partnerRole = state.userRole === 'partner_a' ? 'partner_b' : 'partner_a';
     
-    try {
-        const snapshot = await db.collection("proposals")
-            .where("sessionId", "==", state.sessionId)
-            .where("userRole", "==", partnerRole)
-            .orderBy("round", "desc")
-            .limit(1)
-            .get();  // ← ON-DEMAND (not onSnapshot)
-        
-        if (!snapshot.empty) {
-            const newData = snapshot.docs[0].data();
-            const oldData = state.partnerProposal;
-            
-            state.partnerProposal = newData;
-            
-            // NEW RESPONSE (timestamp comparison)
-            if (oldData && newData.createdAt && oldData.createdAt) {
-                const newTime = newData.createdAt.seconds || 0;
-                const oldTime = oldData.createdAt.seconds || 0;
-                
-                if (newTime > oldTime) {
-                    if (newData.status === "accepted") {
-                        triggerNotification('match_found');
-                        notify('💕 Vibe Match! Kumppanisi hyväksyi!');
-                        renderResults();
-                    } else if (newData.status === "modified") {
-                        triggerNotification('proposal_received');
-                        notify('✏️ Kumppanisi muokkasi ehdotusta!');
+    state.partnerUnsubscribe = db.collection("proposals")
+        .where("sessionId", "==", state.sessionId)
+        .where("userRole", "==", partnerRole)
+        .orderBy("round", "desc")
+        .limit(1)
+        .onSnapshot(
+            (snapshot) => {
+                if (!snapshot.empty) {
+                    const newData = snapshot.docs[0].data();
+                    const oldData = state.partnerProposal;
+                    
+                    state.partnerProposal = newData;
+                    
+                    // UUSI VASTAUS (timestamp comparison)
+                    if (oldData && newData.createdAt && oldData.createdAt) {
+                        if (newData.createdAt.seconds > oldData.createdAt.seconds) {
+                            if (newData.status === "accepted") {
+                                triggerNotification(
+                                    '💕 Vibe Match!',
+                                    'Kumppanisi hyväksyi ehdotuksesi!',
+                                    'match'
+                                );
+                                renderResults();
+                            } else if (newData.status === "modified") {
+                                triggerNotification(
+                                    '✏️ Uusi ehdotus',
+                                    'Kumppanisi muokkasi ehdotusta!',
+                                    'modified'
+                                );
+                            }
+                        }
                     }
-                    return; // Found update
+                    
+                    // ENSIMMÄINEN VASTAUS
+                    if (!oldData && newData.status === "accepted") {
+                        triggerNotification(
+                            '💕 Vibe Match!',
+                            'Kumppanisi hyväksyi ehdotuksesi!',
+                            'match'
+                        );
+                        renderResults();
+                    }
                 }
+            },
+            (error) => {
+                console.error("Realtime error:", error);
+                notify("❌ Yhteys katkesi!");
             }
-            
-            // FIRST RESPONSE
-            if (!oldData) {
-                if (newData.status === "accepted") {
-                    triggerNotification('match_found');
-                    notify('💕 Vibe Match!');
-                    renderResults();
-                } else {
-                    notify('✅ Kumppani on vastannut!');
-                }
-                return;
-            }
-            
-            // NO NEW UPDATES
-            notify('⏳ Ei uusia päivityksiä');
-        } else {
-            notify('⏳ Kumppani ei ole vielä vastannut');
-        }
-    } catch (error) {
-        console.error('❌ checkForUpdates failed:', error);
-        notify('❌ Päivityksen tarkistus epäonnistui');
-    }
+        );
 }
 
-// stopListening not needed (no persistent connections)
 function stopListening() {
-    // Phase 2.6: Deprecated (no onSnapshot to stop)
-    console.log('ℹ️ stopListening called (no-op in v2.6)');
+    if (state.myUnsubscribe) state.myUnsubscribe();
+    if (state.partnerUnsubscribe) state.partnerUnsubscribe();
 }
 
 // --- ESITÄYTTÖ (KAIKKI kategoriat) ---
@@ -644,8 +408,6 @@ function hideStickyActionBar() {
 }
 
 // --- GOLDEN ANCHORS ---
-// HUOM: Ankkurit (partner-anchor class) lisätään jo prefillForm():ssa
-// Tämä funktio rekisteröi event listenerit jotka päivittävät ankkurien tilat (selected/dimmed)
 function applyGoldenAnchors() {
     // Lisää dimmed-luokka ankkuroituihin kortteihin kun käyttäjä valitsee ERI kortin
     document.addEventListener('click', (e) => {
@@ -742,27 +504,12 @@ function emergencyReset() {
 
 // --- TOIMINNOT ---
 async function createSession() {
-    // ← PHASE 2.5.1: Race condition prevention
-    if (isCreatingSession) {
-        notify('⏳ Luodaan jo sessiota...');
-        return;
-    }
+    const id = Math.random().toString(36).substring(2, 8).toUpperCase();
     
-    isCreatingSession = true;
-    const createBtn = document.querySelector('[onclick="createSession()"]');
-    const originalHTML = createBtn ? createBtn.innerHTML : '';
-    
-    if (createBtn) {
-        createBtn.disabled = true;
-        createBtn.innerHTML = '⏳ Luodaan...';
-    }
+    // Pyydä notification-lupa
+    requestNotificationPermission();
     
     try {
-        const id = Math.random().toString(36).substring(2, 8).toUpperCase();
-        
-        // Pyydä notification-lupa
-        requestNotificationPermission();
-        
         await db.collection("sessions").doc(id).set({
             status: "waiting",
             currentRound: 1,
@@ -773,30 +520,17 @@ async function createSession() {
         state.userRole = 'partner_a';
         state.currentRound = 1;
         
-        const sessionDisplay = safeGetElement('session-id-display'); // ← FIXED: safe getter
-        if (sessionDisplay) sessionDisplay.textContent = id;
+        document.getElementById('session-id-display').textContent = id;
         
         const url = window.location.origin + window.location.pathname + '?session=' + id;
         navigator.clipboard.writeText(url);
         
         notify("🔥 Sessio luotu ja linkki kopioitu!");
         showScreen('selection');
-        
-        // ← Phase 2.6: Show Check Updates button (replaces onSnapshot)
-        const checkBtn = safeGetElement('check-updates-btn');
-        if (checkBtn && state.userRole === 'partner_a') {
-            checkBtn.style.display = 'inline-flex';
-        }
+        startListening();
     } catch (e) {
-        console.error('❌ createSession failed:', e);
+        console.error(e);
         notify("❌ Virhe session luonnissa!");
-    } finally {
-        // ← PHASE 2.5.1: Always reset flag
-        isCreatingSession = false;
-        if (createBtn) {
-            createBtn.disabled = false;
-            createBtn.innerHTML = originalHTML;
-        }
     }
 }
 
@@ -829,13 +563,7 @@ async function joinSession(sessionId) {
     }
     
     showScreen('selection');
-    
-    // ← Phase 2.6: Show Check Updates button (replaces onSnapshot)
-    const checkBtn = safeGetElement('check-updates-btn');
-    if (checkBtn && state.userRole === 'partner_b') {
-        checkBtn.style.display = 'inline-flex';
-    }
-    
+    startListening();
     notify("⚡ Liitytty sessioon: " + sessionId);
 }
 
@@ -885,34 +613,18 @@ async function quickAccept() {
 }
 
 async function submitSelection() {
-    // ← PHASE 2.5.1: Race condition prevention
-    if (isSubmitting) {
-        notify('⏳ Tallennetaan jo...');
-        return;
-    }
-    
-    isSubmitting = true;
-    const submitBtn = document.getElementById('submit-selection-btn');
-    const originalHTML = submitBtn ? submitBtn.innerHTML : '';
-    
-    if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '⏳ Tallennetaan...';
-    }
-    
-    try {
-        const details = {};
-        let mood = "ei valittu";
-        let focus = "ei valittu";
-        let tempo = null;
-        let intensity = null;
-        let control = null;
-        let role = null;
-        let time = null;
-        let timeDisplay = null;
+    const details = {};
+    let mood = "ei valittu";
+    let focus = "ei valittu";
+    let tempo = null;
+    let intensity = null;
+    let control = null;
+    let role = null;
+    let time = null;
+    let timeDisplay = null;
 
-        // Kerää kortit
-        safeQueryAll('.selected').forEach(el => { // ← FIXED: safe query
+    // Kerää kortit
+    document.querySelectorAll('.selected').forEach(el => {
         if (el.dataset.mood) mood = el.dataset.mood;
         if (el.dataset.focus) focus = el.dataset.focus;
         if (el.dataset.tempo) tempo = el.dataset.tempo;
@@ -1022,22 +734,13 @@ async function submitSelection() {
             renderResults();
         } else {
             showScreen('results');
-            const waitingState = safeGetElement('waiting-state'); // ← FIXED: safe getter
-            const matchResults = safeGetElement('match-results'); // ← FIXED: safe getter
-            if (waitingState) waitingState.style.display = 'block';
-            if (matchResults) matchResults.style.display = 'none';
+            document.getElementById('waiting-state').style.display = 'block';
+            document.getElementById('match-results').style.display = 'none';
             notify("✅ Ehdotus lähetetty kumppanille!");
         }
     } catch (e) {
-        console.error('❌ submitSelection failed:', e);
+        console.error(e);
         notify("❌ Lähetys epäonnistui!");
-    } finally {
-        // ← PHASE 2.5.1: Always reset flag
-        isSubmitting = false;
-        if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = originalHTML;
-        }
     }
 }
 
@@ -1191,9 +894,6 @@ function renderResults() {
             <button class="btn btn-primary" onclick="resetSession()">🔄 Uusi sessio</button>
         </div>
     `;
-    
-    // ← Phase 2.6: Prepare Vibe Story data
-    prepareVibeStoryData();
 }
 
 function resetSession() {
@@ -1208,74 +908,6 @@ function resetSession() {
     clearAllSelections();
     
     window.location.href = window.location.pathname;
-}
-
-/**
- * Phase 2.6: VIBE STORY DATA PREPARATION
- * Prepares parameters for AI story generation (Phase 2.7)
- * Called after successful match in renderResults()
- */
-function prepareVibeStoryData() {
-    if (!state.myProposal || !state.partnerProposal) {
-        console.warn('⚠️ Both proposals required for Vibe Story');
-        state.vibeStoryReady = false;
-        return null;
-    }
-    
-    const my = state.myProposal.details;
-    const partner = state.partnerProposal.details;
-    
-    // Find common selections (preferred)
-    const commonMood = my.mood === partner.mood ? my.mood : null;
-    const commonFocus = my.focus === partner.focus ? my.focus : null;
-    const commonTempo = my.tempo === partner.tempo ? my.tempo : null;
-    const commonIntensity = my.intensity === partner.intensity ? my.intensity : null;
-    
-    // Merge multi-select categories (unique values)
-    const activities = [...new Set([
-        ...(my.activities || []),
-        ...(partner.activities || [])
-    ])];
-    
-    const atmosphere = [...new Set([
-        ...(my.atmosphere || []),
-        ...(partner.atmosphere || [])
-    ])];
-    
-    const communication = [...new Set([
-        ...(my.communication || []),
-        ...(partner.communication || [])
-    ])];
-    
-    // Build story parameters
-    state.vibeStoryParams = {
-        // Single-choice (use common or fallback to mine)
-        mood: commonMood || my.mood || partner.mood,
-        focus: commonFocus || my.focus || partner.focus,
-        tempo: commonTempo || my.tempo || partner.tempo,
-        intensity: commonIntensity || my.intensity || partner.intensity,
-        control: my.control || partner.control,
-        role: my.role || partner.role,
-        time: my.time || partner.time,
-        timeDisplay: my.timeDisplay || partner.timeDisplay,
-        
-        // Multi-choice (merged)
-        activities: activities,
-        atmosphere: atmosphere,
-        communication: communication,
-        
-        // Additional context
-        hasCommonMood: !!commonMood,
-        hasCommonFocus: !!commonFocus,
-        totalActivities: activities.length
-    };
-    
-    state.vibeStoryReady = true;
-    
-    console.log('🎭 Vibe Story data prepared:', state.vibeStoryParams);
-    console.log('✅ Ready for AI generation (Phase 2.7)');
-    
-    return state.vibeStoryParams;
 }
 
 // --- HISTORIA (ENHANCED) ---
@@ -1294,14 +926,14 @@ function saveMatchToHistory() {
     };
     
     // LocalStorage (anonyymi + nopea)
-    let history = safeLocalStorageGet('vibe_history', []); // ← FIXED: safe getter
+    let history = JSON.parse(localStorage.getItem('vibe_history') || '[]');
     history.unshift(historyEntry);
     
     if (history.length > 50) {
         history = history.slice(0, 50);
     }
     
-    safeLocalStorageSet('vibe_history', history); // ← FIXED: safe setter
+    localStorage.setItem('vibe_history', JSON.stringify(history));
     
     // Firestore (kirjautunut, Phase 3)
     if (state.user) {
@@ -1323,7 +955,7 @@ function loadHistory() {
     const historyList = document.getElementById('history-list');
     if (!historyList) return;
     
-    const history = safeLocalStorageGet('vibe_history', []); // ← FIXED: safe getter
+    const history = JSON.parse(localStorage.getItem('vibe_history') || '[]');
     
     if (history.length === 0) {
         historyList.innerHTML = `
@@ -1371,7 +1003,7 @@ function loadHistory() {
 }
 
 function viewHistoryDetails(index) {
-    const history = safeLocalStorageGet('vibe_history', []); // ← FIXED: safe getter
+    const history = JSON.parse(localStorage.getItem('vibe_history') || '[]');
     const session = history[index];
     
     if (!session) return;
@@ -1510,9 +1142,9 @@ function deleteHistorySession(index) {
     if (!confirm('Poista tämä sessio historiasta?')) return;
     if (navigator.vibrate) navigator.vibrate(20);
     
-    let history = safeLocalStorageGet('vibe_history', []); // ← FIXED: safe getter
+    let history = JSON.parse(localStorage.getItem('vibe_history') || '[]');
     history.splice(index, 1);
-    safeLocalStorageSet('vibe_history', history); // ← FIXED: safe setter
+    localStorage.setItem('vibe_history', JSON.stringify(history));
     
     loadHistory();
     notify('🗑️ Sessio poistettu');
@@ -1674,28 +1306,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 showScreen('welcome');
                 notify('✕ Sessio peruutettu');
             }
-        };
-    }
-    
-    // ← Phase 2.6: Check Updates button (manual refresh)
-    const checkUpdatesBtn = document.getElementById('check-updates-btn');
-    if (checkUpdatesBtn) {
-        checkUpdatesBtn.onclick = async () => {
-            if (!state.sessionId) {
-                notify('❌ Ei aktiivista sessiota');
-                return;
-            }
-            
-            const originalHTML = checkUpdatesBtn.innerHTML;
-            checkUpdatesBtn.disabled = true;
-            checkUpdatesBtn.innerHTML = '<span class="btn-icon">⏳</span> Tarkistetaan...';
-            
-            if (navigator.vibrate) navigator.vibrate(10);
-            
-            await checkForUpdates();
-            
-            checkUpdatesBtn.disabled = false;
-            checkUpdatesBtn.innerHTML = originalHTML;
         };
     }
 
@@ -1862,7 +1472,7 @@ document.addEventListener('DOMContentLoaded', () => {
             state.theme = state.theme === 'dark' ? 'light' : 'dark';
             document.body.setAttribute('data-theme', state.theme);
             themeBtn.textContent = state.theme === 'dark' ? '🌙' : '☀️';
-            safeLocalStorageSet('theme', state.theme); // ← FIXED: safe setter
+            localStorage.setItem('theme', state.theme);
             if (navigator.vibrate) navigator.vibrate(10);
         };
     }

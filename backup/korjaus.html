@@ -1,0 +1,1662 @@
+'itseasiassa tässä dokumentissa on vielä ne kaikki emojit ja valinnat. <!DOCTYPE html>
+
+<html lang="fi">
+
+<head>
+
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, 
+
+initial-scale=1.0">
+
+    <title>Vibe Checker ✨</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+
+    <link rel="preconnect" href="https://fonts.gstatic.com" 
+
+crossorigin>
+
+    <link 
+
+href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Montserrat:wght@300;400;500&display=swap"
+
+ rel="stylesheet">
+
+    <link rel="stylesheet" href="style.css">
+
+	<link rel="icon" href="favicon.ico" type="image/x-icon">
+
+  
+
+</head>
+
+<body>
+
+    <button class="theme-toggle" id="theme-toggle" aria-label="Toggle
+
+ theme">
+
+        🌙
+
+    </button>
+
+
+    <div id="welcome-screen" class="screen active">
+
+        <div class="container">
+
+            <nav class="nav-bar">
+
+                <button class="nav-btn active" 
+
+data-nav="welcome">Etusivu</button>
+
+                <button class="nav-btn" 
+
+data-nav="history">Historia</button>
+
+            </nav>
+
+
+            <div class="logo-container">
+
+                <h1 class="logo">Vibe Checker</h1>
+
+                <p class="tagline">Intiimi kommunikaatio ilman 
+
+painostusta</p>
+
+            </div>
+
+            
+
+            <div class="action-buttons">
+
+                <button class="btn btn-primary" 
+
+id="create-session-btn">
+
+                    <span class="btn-icon">✨</span>
+
+                    Luo kutsu
+
+                </button>
+
+                <button class="btn btn-secondary" 
+
+id="join-session-btn">
+
+                    <span class="btn-icon">💌</span>
+
+                    Avaa kutsu
+
+                </button>
+
+            </div>
+
+
+            <div class="quick-presets">
+
+                <h3 class="presets-title">Pikavalinnat</h3>
+
+                <div class="preset-buttons">
+
+                    <button class="btn btn-preset quickie-preset" 
+
+id="quickie-preset-btn">
+
+                        <span class="btn-icon">⚡</span>
+
+                        Quickie
+
+                    </button>
+
+                    <button class="btn btn-preset tantric-preset" 
+
+id="tantric-preset-btn">
+
+                        <span class="btn-icon">🕉️</span>
+
+                        Tantric
+
+                    </button>
+
+                    <button class="btn btn-preset favorites-preset" 
+
+id="favorites-preset-btn">
+
+                        <span class="btn-icon">⭐</span>
+
+                        Vakiovarusteet
+
+                    </button>
+
+                </div>
+
+                <p class="presets-hint">Täyttää lomakkeen 
+
+automaattisesti</p>
+
+            </div>
+
+
+            <div class="info-card">
+
+                <p class="info-text">Jaa toiveesi turvallisesti. 
+
+Näette vain sen, mitä molemmat haluatte. ❤️</p>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <div id="selection-screen" class="screen">
+
+        <div class="container">
+
+            <div class="header-section">
+
+                <h2 class="screen-title">Valitse vibesi</h2>
+
+                <p class="session-info" id="session-info">Sessio: 
+
+<span id="session-id-display"></span></p>
+
+                <div class="session-actions">
+
+                    <button class="btn btn-icon-only" id="help-btn" 
+
+title="Ohjeet">
+
+                        <span class="btn-icon">❓</span>
+
+                    </button>
+
+                    <button class="btn btn-secondary btn-small" 
+
+id="copy-link-btn">
+
+                        <span class="btn-icon">🔗</span>
+
+                        Kopioi linkki
+
+                    </button>
+
+                    <button class="btn btn-outline btn-small" 
+
+id="cancel-session-btn">
+
+                        <span class="btn-icon">✕</span>
+
+                        Peruuta
+
+                    </button>
+
+                </div>
+
+            </div>
+
+
+            <div class="selection-preview" id="selection-preview" 
+
+style="display: none;">
+
+                <h4 class="preview-title">📋 Esikatselu</h4>
+
+                <div class="preview-content" 
+
+id="preview-content"></div>
+
+            </div>
+
+
+            <section class="selection-section">
+
+                <h3 class="section-title">Tunnelma <span 
+
+class="required-badge">pakollinen</span></h3>
+
+                <div class="mood-grid mood-grid-5">
+
+                    <button class="mood-card" 
+
+data-mood="sensuelli">
+
+                        <span class="mood-icon">🌹</span>
+
+                        <span 
+
+class="mood-label">Sensuelli</span>
+
+                    </button>
+
+                    <button class="mood-card" data-mood="villi">
+
+                        <span class="mood-icon">🔥</span>
+
+                        <span 
+
+class="mood-label">Villi</span>
+
+                    </button>
+
+                    <button class="mood-card" 
+
+data-mood="leikkisa">
+
+                        <span class="mood-icon">😈</span>
+
+                        <span 
+
+class="mood-label">Leikkisä</span>
+
+                    </button>
+
+                    <button class="mood-card" 
+
+data-mood="dominoiva">
+
+                        <span class="mood-icon">👑</span>
+
+                        <span 
+
+class="mood-label">Dominoiva</span>
+
+                    </button>
+
+                    <button class="mood-card" data-mood="hella">
+
+                        <span class="mood-icon">💕</span>
+
+                        <span 
+
+class="mood-label">Hellä</span>
+
+                    </button>
+
+                </div>
+
+            </section>
+
+
+            <section class="selection-section">
+
+                <h3 class="section-title">Fokus <span 
+
+class="required-badge">pakollinen</span></h3>
+
+                <div class="mood-grid mood-grid-4">
+
+                    <button class="mood-card" 
+
+data-focus="minun-nautinto">
+
+                        <span class="mood-icon">✨</span>
+
+                        <span class="mood-label">Minun 
+
+nautintoni</span>
+
+                    </button>
+
+                    <button class="mood-card" 
+
+data-focus="kumppanin-nautinto">
+
+                        <span class="mood-icon">💝</span>
+
+                        <span class="mood-label">Kumppanin 
+
+nautinto</span>
+
+                    </button>
+
+                    <button class="mood-card" 
+
+data-focus="matka-tarkein">
+
+                        <span class="mood-icon">🎭</span>
+
+                        <span class="mood-label">Matka > 
+
+Määränpää</span>
+
+                    </button>
+
+                    <button class="mood-card" 
+
+data-focus="molemmat">
+
+                        <span class="mood-icon">🔥</span>
+
+                        <span class="mood-label">Molemmat yhtä 
+
+aikaa</span>
+
+                    </button>
+
+                </div>
+
+            </section>
+
+
+            <section class="selection-section">
+
+                <h3 class="section-title">Tempo</h3>
+
+                <div class="mood-grid mood-grid-3">
+
+                    <button class="mood-card mood-card-small" 
+
+data-tempo="rento">
+
+                        <span class="mood-icon">🐢</span>
+
+                        <span 
+
+class="mood-label">Rento</span>
+
+                    </button>
+
+                    <button class="mood-card mood-card-small" 
+
+data-tempo="energinen">
+
+                        <span class="mood-icon">⚡</span>
+
+                        <span 
+
+class="mood-label">Energinen</span>
+
+                    </button>
+
+                    <button class="mood-card mood-card-small" 
+
+data-tempo="spontaani">
+
+                        <span class="mood-icon">🎲</span>
+
+                        <span 
+
+class="mood-label">Spontaani</span>
+
+                    </button>
+
+                </div>
+
+            </section>
+
+
+            <section class="selection-section">
+
+                <h3 class="section-title">Intensiteetti</h3>
+
+                <div class="mood-grid mood-grid-3">
+
+                    <button class="mood-card mood-card-small" 
+
+data-intensity="lempea">
+
+                        <span class="mood-icon">🌸</span>
+
+                        <span 
+
+class="mood-label">Lempeä</span>
+
+                    </button>
+
+                    <button class="mood-card mood-card-small" 
+
+data-intensity="keskiverto">
+
+                        <span class="mood-icon">🔶</span>
+
+                        <span 
+
+class="mood-label">Keskiverto</span>
+
+                    </button>
+
+                    <button class="mood-card mood-card-small" 
+
+data-intensity="intensiivinen">
+
+                        <span class="mood-icon">⚡</span>
+
+                        <span 
+
+class="mood-label">Intensiivinen</span>
+
+                    </button>
+
+                </div>
+
+            </section>
+
+
+            <section class="selection-section">
+
+                <h3 class="section-title">Kontrolli</h3>
+
+                <div class="mood-grid mood-grid-3">
+
+                    <button class="mood-card mood-card-small" 
+
+data-control="dominoida">
+
+                        <span class="mood-icon">👑</span>
+
+                        <span class="mood-label">Haluan 
+
+dominoida</span>
+
+                    </button>
+
+                    <button class="mood-card mood-card-small" 
+
+data-control="alistua">
+
+                        <span class="mood-icon">🙇</span>
+
+                        <span class="mood-label">Haluan 
+
+alistua</span>
+
+                    </button>
+
+                    <button class="mood-card mood-card-small" 
+
+data-control="tasa-arvo">
+
+                        <span class="mood-icon">⚖️</span>
+
+                        <span 
+
+class="mood-label">Tasa-arvo</span>
+
+                    </button>
+
+                </div>
+
+            </section>
+
+
+            <section class="selection-section">
+
+                <h3 class="section-title">Rooli</h3>
+
+                <div class="mood-grid mood-grid-3">
+
+                    <button class="mood-card mood-card-small" 
+
+data-role="aktiivinen">
+
+                        <span class="mood-icon">🔥</span>
+
+                        <span 
+
+class="mood-label">Aktiivinen</span>
+
+                    </button>
+
+                    <button class="mood-card mood-card-small" 
+
+data-role="passiivinen">
+
+                        <span class="mood-icon">🌙</span>
+
+                        <span 
+
+class="mood-label">Passiivinen</span>
+
+                    </button>
+
+                    <button class="mood-card mood-card-small" 
+
+data-role="vaihteleva">
+
+                        <span class="mood-icon">🔄</span>
+
+                        <span 
+
+class="mood-label">Vaihteleva</span>
+
+                    </button>
+
+                </div>
+
+            </section>
+
+
+            <section class="selection-section time-section">
+
+                <h3 class="section-title">Ajankohta <span 
+
+class="required-badge">pakollinen</span></h3>
+
+                
+
+                <div class="time-quick-select">
+
+                    <button class="time-btn" data-time="now">
+
+                        <span class="time-icon">⚡</span>
+
+                        <span 
+
+class="time-label">Kohta</span>
+
+                    </button>
+
+                    <button class="time-btn" data-time="30min">
+
+                        <span class="time-icon">⏰</span>
+
+                        <span 
+
+class="time-label">30min</span>
+
+                    </button>
+
+                    <button class="time-btn" data-time="1h">
+
+                        <span class="time-icon">⌛</span>
+
+                        <span class="time-label">1h</span>
+
+                    </button>
+
+                    <button class="time-btn" data-time="evening">
+
+                        <span class="time-icon">🌙</span>
+
+                        <span 
+
+class="time-label">Illalla</span>
+
+                    </button>
+
+                </div>
+
+
+                <div class="time-slider-section">
+
+                    <label class="custom-label">Tai valitse tarkka
+
+ aika:</label>
+
+                    <div class="time-display" 
+
+id="time-display">19:00</div>
+
+                    <input type="range" id="time-slider" 
+
+class="time-slider" min="420" max="1440" value="1140" step="15">
+
+                    <div class="time-range-labels">
+
+                        <span>07:00</span>
+
+                        <span>24:00</span>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <section class="selection-section">
+
+                <h3 class="section-title">Kommunikaatio</h3>
+
+                <div class="spice-grid">
+
+                    <label class="spice-card">
+
+                        <input type="checkbox" name="communication" 
+
+value="dirty-talk">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">💋</span>
+
+                            <span class="spice-label">Dirty 
+
+talk</span>
+
+                        </span>
+
+                    </label>
+
+                    <label class="spice-card">
+
+                        <input type="checkbox" name="communication" 
+
+value="kuiskailu">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">🤫</span>
+
+                            <span 
+
+class="spice-label">Kuiskailu</span>
+
+                        </span>
+
+                    </label>
+
+                    <label class="spice-card">
+
+                        <input type="checkbox" name="communication" 
+
+value="hiljaisuus">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">🤐</span>
+
+                            <span 
+
+class="spice-label">Hiljaisuus</span>
+
+                        </span>
+
+                    </label>
+
+                    <label class="spice-card">
+
+                        <input type="checkbox" name="communication" 
+
+value="ohjeiden-anto">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">📢</span>
+
+                            <span class="spice-label">Ohjeiden 
+
+anto</span>
+
+                        </span>
+
+                    </label>
+
+                    <label class="spice-card">
+
+                        <input type="checkbox" name="communication" 
+
+value="kehut">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">🌟</span>
+
+                            <span 
+
+class="spice-label">Kehut/kannustus</span>
+
+                        </span>
+
+                    </label>
+
+                </div>
+
+            </section>
+
+
+            <section class="selection-section">
+
+                <h3 class="section-title">Asut</h3>
+
+                <div class="spice-grid">
+
+                    <label class="spice-card">
+
+                        <input type="checkbox" name="outfit" 
+
+value="valitsen-kumppanille">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">👗</span>
+
+                            <span class="spice-label">Valitsen 
+
+kumppanille</span>
+
+                        </span>
+
+                    </label>
+
+                    <label class="spice-card">
+
+                        <input type="checkbox" name="outfit" 
+
+value="kumppani-valitsee">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">🎁</span>
+
+                            <span class="spice-label">Kumppani 
+
+valitsee minulle</span>
+
+                        </span>
+
+                    </label>
+
+                    <label class="spice-card">
+
+                        <input type="checkbox" name="outfit" 
+
+value="pitsialusvaatteet">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">🦋</span>
+
+                            <span 
+
+class="spice-label">Pitsialusvaatteet</span>
+
+                        </span>
+
+                    </label>
+
+                    <label class="spice-card">
+
+                        <input type="checkbox" name="outfit" 
+
+value="body-korset">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">👙</span>
+
+                            <span 
+
+class="spice-label">Body/korset</span>
+
+                        </span>
+
+                    </label>
+
+                    <label class="spice-card">
+
+                        <input type="checkbox" name="outfit" 
+
+value="aamutakki">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">🧥</span>
+
+                            <span class="spice-label">Pelkkä 
+
+aamutakki</span>
+
+                        </span>
+
+                    </label>
+
+                    <label class="spice-card">
+
+                        <input type="checkbox" name="outfit" 
+
+value="alaston">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">✨</span>
+
+                            <span class="spice-label">Täysin 
+
+alaston</span>
+
+                        </span>
+
+                    </label>
+
+                </div>
+
+            </section>
+
+
+            <div class="quick-action">
+
+                <button class="btn btn-outline" 
+
+id="load-favorites-btn">
+
+                    <span class="btn-icon">⚡</span>
+
+                    Vakiovarusteet
+
+                </button>
+
+            </div>
+
+
+            <section class="selection-section">
+
+                <h3 class="section-title">Nylon & 
+
+Sukat</h3>
+
+                <div class="spice-grid">
+
+                    <label class="spice-card">
+
+                        <input type="checkbox" name="spice" 
+
+value="nude-stayup">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">🩰</span>
+
+                            <span class="spice-label">Nude 
+
+stay-up</span>
+
+                        </span>
+
+                    </label>
+
+                    <label class="spice-card">
+
+                        <input type="checkbox" name="spice" 
+
+value="black-stayup">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">🖤</span>
+
+                            <span class="spice-label">Musta 
+
+stay-up</span>
+
+                        </span>
+
+                    </label>
+
+                    <label class="spice-card">
+
+                        <input type="checkbox" name="spice" 
+
+value="white-stayup">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">🤍</span>
+
+                            <span class="spice-label">Valkoinen 
+
+stay-up</span>
+
+                        </span>
+
+                    </label>
+
+                    <label class="spice-card">
+
+                        <input type="checkbox" name="spice" 
+
+value="red-stayup">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">❤️</span>
+
+                            <span class="spice-label">Punainen 
+
+stay-up</span>
+
+                        </span>
+
+                    </label>
+
+                    <label class="spice-card">
+
+                        <input type="checkbox" name="spice" 
+
+value="open-tights">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">💎</span>
+
+                            <span class="spice-label">Avoimet 
+
+sukkahousut</span>
+
+                        </span>
+
+                    </label>
+
+                </div>
+
+            </section>
+
+
+            <section class="selection-section">
+
+                <h3 class="section-title">Aistit & 
+
+Sidonta</h3>
+
+                <div class="spice-grid">
+
+                    <label class="spice-card">
+
+                        <input type="checkbox" name="spice" 
+
+value="blindfold">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">👁️</span>
+
+                            <span class="spice-label">Silmien 
+
+sidonta</span>
+
+                        </span>
+
+                    </label>
+
+                    <label class="spice-card">
+
+                        <input type="checkbox" name="spice" 
+
+value="headphones">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">🎧</span>
+
+                            <span 
+
+class="spice-label">Kuulokkeet</span>
+
+                        </span>
+
+                    </label>
+
+                    <label class="spice-card">
+
+                        <input type="checkbox" name="spice" 
+
+value="photography">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">📸</span>
+
+                            <span 
+
+class="spice-label">Valokuvaus</span>
+
+                        </span>
+
+                    </label>
+
+                    <label class="spice-card">
+
+                        <input type="checkbox" name="spice" 
+
+value="bondage">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">🪢</span>
+
+                            <span class="spice-label">Sidonta 
+
+(köydet)</span>
+
+                        </span>
+
+                    </label>
+
+                    <label class="spice-card">
+
+                        <input type="checkbox" name="spice" 
+
+value="handcuffs">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">⛓️</span>
+
+                            <span 
+
+class="spice-label">Käsiraudat/kahleet</span>
+
+                        </span>
+
+                    </label>
+
+                    <label class="spice-card">
+
+                        <input type="checkbox" name="spice" 
+
+value="ice">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">🧊</span>
+
+                            <span class="spice-label">Jään 
+
+käyttö</span>
+
+                        </span>
+
+                    </label>
+
+                    <label class="spice-card">
+
+                        <input type="checkbox" name="spice" 
+
+value="hot-wax">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">🕯️</span>
+
+                            <span class="spice-label">Kuuman vahan
+
+ käyttö</span>
+
+                        </span>
+
+                    </label>
+
+                </div>
+
+            </section>
+
+
+            <section class="selection-section bdsm-section">
+
+                <h3 class="section-title">BDSM / Valta</h3>
+
+                <div class="spice-grid">
+
+                    <label class="spice-card spice-card-bdsm">
+
+                        <input type="checkbox" name="bdsm" 
+
+value="piiskaus">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">🔴</span>
+
+                            <span 
+
+class="spice-label">Piiskaus</span>
+
+                        </span>
+
+                    </label>
+
+                    <label class="spice-card spice-card-bdsm">
+
+                        <input type="checkbox" name="bdsm" 
+
+value="paddle">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">🏓</span>
+
+                            <span 
+
+class="spice-label">Paddle</span>
+
+                        </span>
+
+                    </label>
+
+                    <label class="spice-card spice-card-bdsm">
+
+                        <input type="checkbox" name="bdsm" 
+
+value="raippa">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">〰️</span>
+
+                            <span 
+
+class="spice-label">Raippa</span>
+
+                        </span>
+
+                    </label>
+
+                    <label class="spice-card spice-card-bdsm">
+
+                        <input type="checkbox" name="bdsm" 
+
+value="spanking">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">✋</span>
+
+                            <span class="spice-label">Kämmen 
+
+(spanking)</span>
+
+                        </span>
+
+                    </label>
+
+                    <label class="spice-card spice-card-bdsm">
+
+                        <input type="checkbox" name="bdsm" 
+
+value="kuristaminen">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">🤚</span>
+
+                            <span 
+
+class="spice-label">Kuristaminen</span>
+
+                        </span>
+
+                    </label>
+
+                    <label class="spice-card spice-card-bdsm">
+
+                        <input type="checkbox" name="bdsm" 
+
+value="pureminen">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">🦷</span>
+
+                            <span 
+
+class="spice-label">Pureminen</span>
+
+                        </span>
+
+                    </label>
+
+                    <label class="spice-card spice-card-bdsm">
+
+                        <input type="checkbox" name="bdsm" 
+
+value="kynsien-kaytto">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">💅</span>
+
+                            <span class="spice-label">Kynsien 
+
+käyttö</span>
+
+                        </span>
+
+                    </label>
+
+                    <label class="spice-card spice-card-bdsm">
+
+                        <input type="checkbox" name="bdsm" 
+
+value="nannipuristus">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">🔴</span>
+
+                            <span 
+
+class="spice-label">Nännipuristus</span>
+
+                        </span>
+
+                    </label>
+
+                    <label class="spice-card spice-card-bdsm">
+
+                        <input type="checkbox" name="bdsm" 
+
+value="hiusten-vetaminen">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">💇</span>
+
+                            <span class="spice-label">Hiusten 
+
+vetäminen</span>
+
+                        </span>
+
+                    </label>
+
+                </div>
+
+            </section>
+
+
+            <section class="selection-section">
+
+                <h3 class="section-title">Lelut & 
+
+Välineet</h3>
+
+                <div class="spice-grid">
+
+                    <label class="spice-card">
+
+                        <input type="checkbox" name="spice" 
+
+value="vibrator">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">💫</span>
+
+                            <span 
+
+class="spice-label">Vibraattori</span>
+
+                        </span>
+
+                    </label>
+
+                    <label class="spice-card">
+
+                        <input type="checkbox" name="spice" 
+
+value="dildo">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">🍆</span>
+
+                            <span 
+
+class="spice-label">Dildo</span>
+
+                        </span>
+
+                    </label>
+
+                    <label class="spice-card">
+
+                        <input type="checkbox" name="spice" 
+
+value="strap-on">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">🔗</span>
+
+                            <span 
+
+class="spice-label">Strap-on</span>
+
+                        </span>
+
+                    </label>
+
+                    <label class="spice-card">
+
+                        <input type="checkbox" name="spice" 
+
+value="nipple-clamps">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">📌</span>
+
+                            <span 
+
+class="spice-label">Nännipiistimet</span>
+
+                        </span>
+
+                    </label>
+
+                    <label class="spice-card">
+
+                        <input type="checkbox" name="spice" 
+
+value="anal-plug">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">💠</span>
+
+                            <span 
+
+class="spice-label">Anaalitappi</span>
+
+                        </span>
+
+                    </label>
+
+                    <label class="spice-card">
+
+                        <input type="checkbox" name="spice" 
+
+value="massage-oil">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">🫗</span>
+
+                            <span 
+
+class="spice-label">Hierontaöljy</span>
+
+                        </span>
+
+                    </label>
+
+                    <label class="spice-card">
+
+                        <input type="checkbox" name="spice" 
+
+value="sormipeli">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">👆</span>
+
+                            <span 
+
+class="spice-label">Sormipeli</span>
+
+                        </span>
+
+                    </label>
+
+                    <label class="spice-card">
+
+                        <input type="checkbox" name="spice" 
+
+value="feather">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">🪶</span>
+
+                            <span class="spice-label">Feather 
+
+tickler</span>
+
+                        </span>
+
+                    </label>
+
+                </div>
+
+            </section>
+
+
+            <section class="selection-section">
+
+                <h3 
+
+class="section-title">Erityisfokukset</h3>
+
+                <div class="spice-grid">
+
+                    <label class="spice-card">
+
+                        <input type="checkbox" name="spice" 
+
+value="partner-orgasm">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">💝</span>
+
+                            <span class="spice-label">Toisen 
+
+orgasmi edellä</span>
+
+                        </span>
+
+                    </label>
+
+                    <label class="spice-card">
+
+                        <input type="checkbox" name="spice" 
+
+value="pleasure-only">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">✨</span>
+
+                            <span class="spice-label">Vain 
+
+nautintoa toiselle</span>
+
+                        </span>
+
+                    </label>
+
+                    <label class="spice-card">
+
+                        <input type="checkbox" name="spice" 
+
+value="multiple-orgasms">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">🌟</span>
+
+                            <span class="spice-label">Useat 
+
+orgasmit</span>
+
+                        </span>
+
+                    </label>
+
+                    <label class="spice-card">
+
+                        <input type="checkbox" name="spice" 
+
+value="edging">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">⏸️</span>
+
+                            <span 
+
+class="spice-label">Edging</span>
+
+                        </span>
+
+                    </label>
+
+                    <label class="spice-card">
+
+                        <input type="checkbox" name="spice" 
+
+value="no-penetration">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">🚫</span>
+
+                            <span class="spice-label">Yhdyntä 
+
+kielletty</span>
+
+                        </span>
+
+                    </label>
+
+                    <label class="spice-card">
+
+                        <input type="checkbox" name="spice" 
+
+value="foreplay-focus">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">💋</span>
+
+                            <span 
+
+class="spice-label">Foreplay-fokus</span>
+
+                        </span>
+
+                    </label>
+
+                    <label class="spice-card">
+
+                        <input type="checkbox" name="spice" 
+
+value="quickie">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">⚡</span>
+
+                            <span class="spice-label">Quickie 
+
+(nopea)</span>
+
+                        </span>
+
+                    </label>
+
+                    <label class="spice-card">
+
+                        <input type="checkbox" name="spice" 
+
+value="tantric">
+
+                        <span class="spice-content">
+
+                            <span 
+
+class="spice-icon">🕉️</span>
+
+               
